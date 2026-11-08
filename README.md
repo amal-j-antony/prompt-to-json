@@ -2,37 +2,100 @@
 
 Four fields in. One agent-ready brief out.
 
-Write a goal, constraints, file references, and open questions. Prompt Studio turns them into a validated JSON brief you can paste into a coding agent.
+Write a goal, constraints, file references, and open questions. Prompt Studio turns them into a validated JSON brief you can paste into a coding agent. Saved briefs live in your account, backed by MongoDB Atlas, or stay in the browser when you are signed out.
 
 ![The editor in light mode](docs/screenshots/desktop-light.png)
 
 ![The editor in dark mode](docs/screenshots/desktop-dark-filled.png)
 
-![Saved briefs in the history drawer](docs/screenshots/desktop-light-history.png)
+![The create account dialog](docs/screenshots/desktop-auth.png)
 
 ## What it does
 
 - Four rich-text fields share one editor: bold, italic, inline code, bullet and numbered lists, quotes, headings, undo, and redo. Typing `- `, `1. `, `# `, or `> ` starts the matching block.
 - The right panel updates on every keystroke with the JSON brief. Copy it or download `brief.json`.
 - The JSON Schema tab shows the draft 2020-12 schema the payload is validated against. Zod generates both from one declaration.
+- Create an account to save briefs to MongoDB Atlas. History is scoped to the account and follows you to any device.
+- Signed-out use still works. Drafts and guest history stay in this browser.
+- A server status pill shows `Server online`, `Waking server`, `Database offline`, or `Server offline`. Signed-in saves make one immediate attempt plus four retries when Render's free instance is waking.
 - Light, dark, and system themes. The choice survives a reload.
-- Save the current brief to history. The drawer lists saved snapshots with a title, relative time, and field count. Load one back into the editor, delete it, or clear all. History keeps the newest 50 entries in this browser.
-- Drafts autosave to localStorage under `prompt-studio.draft.v1`. Nothing leaves the browser.
 
 ## Run it
 
 ```sh
 npm install
+cp .env.example .env
+# set MONGODB_URI in .env to your Atlas connection string
 npm run dev
 ```
 
-Open http://localhost:5173.
+`npm run dev` starts the Vite app on http://localhost:5173 and the API on http://localhost:8787. Vite proxies `/api` so cookies stay same-origin.
+
+To run the production build locally:
 
 ```sh
-npm test        # pure brief pipeline
+npm run build
+npm start
+```
+
+Open http://localhost:8787. Express serves the built SPA and the API from one origin.
+
+```sh
+npm test          # 52 unit tests
 npm run typecheck
+npm run lint
 npm run build
 ```
+
+## Accounts and storage
+
+| Where | What | Key |
+| --- | --- | --- |
+| MongoDB Atlas | Users, sessions, saved briefs | `prompt_studio` database |
+| Browser localStorage | Draft, guest history, theme | `prompt-studio.*` keys |
+
+Signed in, Save writes `POST /api/history` and the drawer reads the account. Signed out, Save and the drawer use localStorage. Signing in does not upload existing guest entries.
+
+Passwords use Node's scrypt with a random salt. Sessions are random tokens stored as SHA-256 hashes in Mongo, sent in an httpOnly `ps_session` cookie for 30 days. Logout deletes the session. Every history query filters by `userId`.
+
+### API
+
+| Method | Path | Auth | Result |
+| --- | --- | --- | --- |
+| GET | `/api/ping` | no | Liveness for Render |
+| GET | `/api/health` | no | Server uptime and Mongo state |
+| POST | `/api/auth/signup` | no | Create an account and session |
+| POST | `/api/auth/login` | no | Sign in |
+| POST | `/api/auth/logout` | no | Revoke the session |
+| GET | `/api/auth/me` | no | Current user or `null` |
+| GET | `/api/history` | yes | Newest 50 saved briefs |
+| POST | `/api/history` | yes | Save one, or report a duplicate |
+| DELETE | `/api/history/:id` | yes | Delete one owned brief |
+| DELETE | `/api/history` | yes | Clear the account's history |
+
+Validation, auth, and rate-limit failures return `{ "error", "code" }`.
+
+## Cold start
+
+Render's free web service sleeps after idle time. The first request can take 30 to 60 seconds while the instance boots. The app handles that in three places.
+
+1. The status pill probes `/api/health` on load and shows `Waking server` while the probe hangs or fails once.
+2. A signed-in save retries network errors and 502, 503, and 504 responses. It makes one immediate attempt, then retries at 0, 1.5, 4, and 8 seconds. Each attempt aborts after 65 seconds, and the toast says `Server is waking up. Retrying save.`
+3. The drawer's list request uses the same retry policy, so history appears once the instance is awake.
+
+The server starts its HTTP listener before Mongo connects. Routes that need the database return 503 until it is ready, and `/api/health` reports `connecting` or `error`. The server retries the Atlas connection every 5 seconds.
+
+## Deploy to Render
+
+`render.yaml` defines one free web service.
+
+1. Push the repo to GitHub.
+2. In Render, create a Blueprint from the repo.
+3. Set `MONGODB_URI` to the Atlas connection string with the real password, and `APP_ORIGIN` to the Render URL, for example `https://prompt-studio.onrender.com`.
+4. In Atlas, allow Render to connect. The simple option is a network access rule for `0.0.0.0/0`. The tighter option is the Render egress IPs for your region.
+5. Deploy. Render builds with `npm ci --include=dev && npm run build` and starts `node dist-server/server/index.js`.
+
+The build compiles the server to CommonJS in `dist-server`, writes a matching `package.json`, and bundles the SPA into `dist`. Express serves both.
 
 ## The payload
 
@@ -74,29 +137,31 @@ FieldEditor.onUpdate [1] ← one TipTap instance per field
 │   └── replace(docs) on history load [1a2] ← remounts editors
 ├── OutputPanel [1b]
 │   ├── Save brief [1b1] → useHistory.save [1b1a]
-│   │   ├── addEntry + newest duplicate check [1b1a1]
-│   │   ├── localStorage history write first [1b1a2]
-│   │   └── setEntries after a successful write [1b1a3]
+│   │   ├── signed out → localStorage [1b1a1]
+│   │   └── signed in → POST /api/history with wake retry [1b1a2]
 │   ├── Copy JSON [1b2] ← disabled until valid
-│   ├── Download brief.json [1b3]
-│   └── JSON Schema tab [1b4] ← z.toJSONSchema(BriefSchema)
-└── HistoryDrawer [1c]
-    ├── Load → replace(docs) + close [1c1]
-    └── Delete or clear → persist then setEntries [1c2]
+│   └── Download brief.json [1b3]
+├── HistoryDrawer [1c]
+│   ├── account source → GET /api/history [1c1]
+│   └── browser source → localStorage [1c2]
+└── useAuth [1d] ← GET /api/auth/me, signup, login, logout
 ```
 
-The same `Brief` type comes from `BriefSchema`, so the runtime validator and the displayed schema cannot drift. `src/brief/compile.ts` is the only place that assembles the payload. History stores the four ProseMirror documents, so loading a saved brief rebuilds the JSON from the same compiler instead of from a second stored format.
+`shared/brief-docs.ts` validates documents and derives titles for both the browser and the server. `shared/api.ts` holds the wire types.
 
 ## Project layout
 
 ```text
+server/             Express app, Mongo access, auth, history, tests
+shared/             document validation, title derivation, wire types
 src/
-├── brief/          contract, docs model, registry, markdown serializer, compiler, tests
-├── history/        pure entries, titles, relative time, tests
+├── brief/          contract, registry, markdown serializer, compiler, tests
+├── history/        pure entry model, relative time, tests
 ├── editor/         TipTap field, toolbar, action table
-├── state/          draft, history, and theme hooks
-├── ui/             form cards, output panel, history drawer, theme toggle, toast
-├── App.tsx         header, grid, reset, completion meter
+├── state/          auth, server status, history, draft, and theme hooks
+├── lib/api.ts      fetch wrapper, typed routes, wake retry
+├── ui/             form, output, history, auth, account, status, theme
+├── App.tsx         header, grid, dialogs, toasts
 └── styles.css      design tokens and editor typography
 ```
 
@@ -104,18 +169,18 @@ src/
 
 Colors and spacing live in `src/styles.css` as CSS variables mapped into Tailwind v4 through `@theme inline`. The `dark` class on `<html>` swaps the token set. An inline script in `index.html` applies the stored theme before first paint.
 
-The layout is a two-column workspace at 1024 px and wider, and a single column below that. Every control is a real button or a labelled editor, the toolbar exposes `aria-pressed`, the output tabs follow the WAI-ARIA tabs pattern, and validation messages sit in live regions.
+The layout is a two-column workspace at 1024 px and wider, and a single column below that. Every control is a real button or a labelled editor, the toolbar exposes `aria-pressed`, the output tabs follow the WAI-ARIA tabs pattern, and the auth dialog and history drawer share one focus-trap hook.
 
-`src/brief/` and `src/history/` are pure. They import neither React nor the DOM, so both can move into a workspace package without edits. `src/state/` holds the React adapters, and the draft and history keys have separate writers.
+`src/brief/`, `src/history/`, and `shared/` import neither React nor the DOM, so they can move into a workspace package without edits.
 
 ## Stitch MCP
 
-The app was built without Stitch because no Stitch MCP server or API key was configured in this environment. `docs/stitch.md` has the setup commands, the OpenCode config, and the prompt to regenerate this screen in Stitch. The four-field layout, tokens, and components are isolated, so a Stitch design can replace the visual layer without touching the brief pipeline.
+The original visual layer was built without Stitch because no Stitch MCP server or API key was configured in this environment. `docs/stitch.md` has the setup commands, the OpenCode config, and the prompt to regenerate the screen. The account dialog adds one more surface to that prompt.
 
 ## Verification
 
-`npm test` covers the serializer, item flattening, path normalization, schema shape, parse failures, issue mapping, and the history model. `scripts/verify-ui.cjs` drives the real app in Chrome through 38 checks: typing, formatting, deduplication, save, duplicate save, load, delete, copy, download, schema tab, reload persistence, reset, and dark and light layouts. Start the dev server first, then run:
-
-```sh
-npm run verify:ui
-```
+- `npm test` runs 52 unit tests across the serializer, schema, history model, password hashing, rate limiting, origin checks, and document validation.
+- `npm run verify:api` runs 30 checks against a real local mongod: signup, sessions, save, duplicate detection, two-user isolation, IDOR, delete, clear, logout, bad credentials, and origin rejection.
+- `npm run verify:ui` runs 38 guest checks in Chrome.
+- `npm run verify:auth` runs 25 account checks: signup, account save, sign-out, second-account isolation, history restore across reload, degraded and recovered status, retry after two simulated 503s, and screenshots.
+- Run the server first for the browser scripts.
