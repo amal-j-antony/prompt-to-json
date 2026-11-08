@@ -1,0 +1,296 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --canvas: #f6f6f8;
+  --canvas-deep: #eeeef3;
+  --surface: #ffffff;
+  --surface-2: #fbfbfd;
+  --surface-3: #f1f1f6;
+  --border: #e4e4ea;
+  --border-strong: #d3d3dc;
+  --text: #17171c;
+  --text-muted: #676773;
+  --text-subtle: #8b8b98;
+  --accent: #5b4bdb;
+  --accent-hover: #4a3ac8;
+  --accent-soft: #eeecfe;
+  --accent-border: #cbc3fb;
+  --on-accent: #ffffff;
+  --ok: #0b6f56;
+  --ok-soft: #e4f6ef;
+  --ok-border: #b4e4d3;
+  --warn: #8a5b00;
+  --warn-soft: #fff6df;
+  --warn-border: #f0d99b;
+  --code-bg: #f8f8fb;
+  --code-text: #31313c;
+  --ring: #5b4bdb;
+  --elevation-card: 0 1px 2px rgb(20 20 30 / 0.04), 0 12px 32px -20px rgb(20 20 30 / 0.28);
+  --elevation-float: 0 2px 6px rgb(20 20 30 / 0.06), 0 24px 48px -24px rgb(20 20 30 / 0.3);
+}
+
+.dark {
+  --canvas: #0b0b0f;
+  --canvas-deep: #08080b;
+  --surface: #131318;
+  --surface-2: #17171d;
+  --surface-3: #1e1e26;
+  --border: #26262f;
+  --border-strong: #373742;
+  --text: #f3f3f6;
+  --text-muted: #a2a2ae;
+  --text-subtle: #7c7c8a;
+  --accent: #8f80ff;
+  --accent-hover: #a89bff;
+  --accent-soft: #1e1a38;
+  --accent-border: #3b3368;
+  --on-accent: #12101f;
+  --ok: #57dfa6;
+  --ok-soft: #0f241c;
+  --ok-border: #1e4a3a;
+  --warn: #efc35c;
+  --warn-soft: #271f0e;
+  --warn-border: #4a3a17;
+  --code-bg: #0f0f15;
+  --code-text: #d9d9e3;
+  --ring: #8f80ff;
+  --elevation-card: 0 1px 0 rgb(255 255 255 / 0.03), 0 16px 40px -24px rgb(0 0 0 / 0.75);
+  --elevation-float: 0 1px 0 rgb(255 255 255 / 0.04), 0 28px 60px -28px rgb(0 0 0 / 0.85);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-deep: var(--canvas-deep);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-border);
+  --color-on-accent: var(--on-accent);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-line: var(--ok-border);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-line: var(--warn-border);
+  --color-code: var(--code-bg);
+  --color-code-ink: var(--code-text);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo,
+    Consolas, monospace;
+
+  --radius-card: 1rem;
+  --shadow-card: var(--elevation-card);
+  --shadow-float: var(--elevation-float);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background-color: var(--canvas);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  :where(button, input, textarea) {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .app-backdrop {
+    background-image:
+      radial-gradient(
+        56rem 28rem at 8% -12%,
+        color-mix(in oklab, var(--accent) 13%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        44rem 24rem at 96% -4%,
+        color-mix(in oklab, #2bb6c9 9%, transparent),
+        transparent 58%
+      );
+    background-repeat: no-repeat;
+  }
+
+  .field-shell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--elevation-card);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .field-shell:focus-within {
+    border-color: var(--accent-border);
+    box-shadow:
+      var(--elevation-card),
+      0 0 0 4px color-mix(in oklab, var(--accent) 10%, transparent);
+  }
+
+  .editor-surface .ProseMirror {
+    min-height: var(--editor-min, 7.25rem);
+    outline: none;
+    color: var(--text);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+
+  .editor-surface .ProseMirror > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .editor-surface .ProseMirror p {
+    margin: 0;
+  }
+
+  .editor-surface .ProseMirror h1,
+  .editor-surface .ProseMirror h2,
+  .editor-surface .ProseMirror h3 {
+    margin: 0;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .editor-surface .ProseMirror h1 {
+    font-size: 1.25rem;
+  }
+
+  .editor-surface .ProseMirror h2 {
+    font-size: 1.125rem;
+  }
+
+  .editor-surface .ProseMirror h3 {
+    font-size: 1rem;
+  }
+
+  .editor-surface .ProseMirror ul,
+  .editor-surface .ProseMirror ol {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .editor-surface .ProseMirror ul {
+    list-style: disc;
+  }
+
+  .editor-surface .ProseMirror ol {
+    list-style: decimal;
+  }
+
+  .editor-surface .ProseMirror li {
+    margin: 0.125rem 0;
+  }
+
+  .editor-surface .ProseMirror li > p {
+    display: inline;
+  }
+
+  .editor-surface .ProseMirror blockquote {
+    margin: 0;
+    border-left: 3px solid var(--accent-border);
+    padding-left: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .editor-surface .ProseMirror code {
+    border-radius: 0.3rem;
+    background: var(--surface-3);
+    padding: 0.1rem 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--text);
+  }
+
+  .editor-surface .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    color: var(--text-subtle);
+    pointer-events: none;
+  }
+
+  .editor-surface .ProseMirror ::selection {
+    background: color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+
+  .code-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  .code-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .code-scroll::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    background-color: var(--border-strong);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-rise {
+  animation: rise-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
