@@ -1,4 +1,4 @@
-import type { JSONContent } from '@tiptap/core'
+import type { DocMark, DocNode } from '../../shared/brief-docs'
 
 const BLOCK_SEPARATOR = '\n\n'
 const HARD_BREAK = '  \n'
@@ -9,7 +9,7 @@ function codeSpan(text: string): string {
   return fence + pad + text + pad + fence
 }
 
-function applyMarks(text: string, marks: NonNullable<JSONContent['marks']>): string {
+function applyMarks(text: string, marks: DocMark[]): string {
   let out = text
   if (marks.some((mark) => mark.type === 'code')) out = codeSpan(out)
   if (marks.some((mark) => mark.type === 'italic')) out = `_${out}_`
@@ -17,13 +17,13 @@ function applyMarks(text: string, marks: NonNullable<JSONContent['marks']>): str
   return out
 }
 
-function inlineMarkdown(node: JSONContent): string {
+function inlineMarkdown(node: DocNode): string {
   if (node.type === 'text') return applyMarks(node.text ?? '', node.marks ?? [])
   if (node.type === 'hardBreak') return HARD_BREAK
   return (node.content ?? []).map(inlineMarkdown).join('')
 }
 
-function headingPrefix(node: JSONContent): string {
+function headingPrefix(node: DocNode): string {
   const raw = node.attrs?.level
   const level = typeof raw === 'number' ? Math.min(Math.max(raw, 1), 3) : 1
   return `${'#'.repeat(level)} `
@@ -44,7 +44,7 @@ function prefixQuote(text: string): string {
     .join('\n')
 }
 
-function listMarkdown(list: JSONContent, depth: number, ordered: boolean): string {
+function listMarkdown(list: DocNode, depth: number, ordered: boolean): string {
   const indent = '  '.repeat(depth)
   const lines: string[] = []
 
@@ -71,7 +71,7 @@ function listMarkdown(list: JSONContent, depth: number, ordered: boolean): strin
   return lines.join('\n')
 }
 
-function blockMarkdown(node: JSONContent, depth = 0): string {
+function blockMarkdown(node: DocNode, depth = 0): string {
   switch (node.type) {
     case 'paragraph':
       return inlineMarkdown(node)
@@ -93,7 +93,7 @@ function blockMarkdown(node: JSONContent, depth = 0): string {
   }
 }
 
-export function docToMarkdown(doc: JSONContent): string {
+export function docToMarkdown(doc: DocNode): string {
   return (doc.content ?? [])
     .map((child) => blockMarkdown(child))
     .filter((text) => text.trim().length > 0)
@@ -101,10 +101,10 @@ export function docToMarkdown(doc: JSONContent): string {
     .trim()
 }
 
-function collectListItems(list: JSONContent, out: string[]): void {
+function collectListItems(list: DocNode, out: string[]): void {
   for (const item of list.content ?? []) {
     const own: string[] = []
-    const nested: JSONContent[] = []
+    const nested: DocNode[] = []
 
     for (const child of item.content ?? []) {
       if (child.type === 'bulletList' || child.type === 'orderedList') {
@@ -120,7 +120,7 @@ function collectListItems(list: JSONContent, out: string[]): void {
   }
 }
 
-export function docToItems(doc: JSONContent): string[] {
+export function docToItems(doc: DocNode): string[] {
   const items: string[] = []
 
   for (const block of doc.content ?? []) {

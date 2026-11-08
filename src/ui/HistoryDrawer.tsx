@@ -1,70 +1,41 @@
 import { Trash2, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import {
   fieldCount,
   historyTitle,
   relativeTime,
   type HistoryEntry,
 } from '../history/entry'
+import type { HistorySource } from '../state/useHistory'
+import { useDialog } from './useDialog'
 
 interface HistoryDrawerProps {
   entries: HistoryEntry[]
+  source: HistorySource
+  loading: boolean
   error: string | null
+  signedIn: boolean
+  onSignIn(): void
   onClose(): void
   onLoad(entry: HistoryEntry): void
   onDelete(id: string): void
   onClear(): void
 }
 
-const FOCUSABLE =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-
 export function HistoryDrawer({
   entries,
+  source,
+  loading,
   error,
+  signedIn,
+  onSignIn,
   onClose,
   onLoad,
   onDelete,
   onClear,
 }: HistoryDrawerProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    closeRef.current?.focus()
-
-    const panel = panelRef.current
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab' || !panel) return
-
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
-      const first = focusable.at(0)
-      const last = focusable.at(-1)
-      if (!first || !last) return
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
-    }
-  }, [onClose])
+  const { panelRef, onBackdropClick } = useDialog({ onClose, initialFocusRef: closeRef })
 
   const handleLoad = (entry: HistoryEntry) => {
     if (!window.confirm('Replace the current draft with this saved brief?')) return
@@ -82,33 +53,40 @@ export function HistoryDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
-      <div aria-hidden="true" className="drawer-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-40 flex justify-end" onClick={onBackdropClick}>
+      <div
+        aria-hidden="true"
+        className="drawer-backdrop pointer-events-none absolute inset-0 bg-black/40 backdrop-blur-sm"
+      />
 
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="history-title"
-        onClick={(event) => event.stopPropagation()}
         className="drawer-panel absolute inset-y-0 right-0 flex h-full w-full flex-col border-l border-line bg-surface shadow-float sm:max-w-md"
       >
         <header className="flex items-start gap-3 border-b border-line px-5 pb-4 pt-5">
           <div className="min-w-0">
-            <h2
-              id="history-title"
-              className="text-[15px] font-semibold leading-6 tracking-[-0.01em] text-ink"
-            >
-              History
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2
+                id="history-title"
+                className="text-[15px] font-semibold leading-6 tracking-[-0.01em] text-ink"
+              >
+                History
+              </h2>
+              {!loading && entries.length > 0 ? (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-[10.5px] font-semibold leading-4 text-muted">
+                  {entries.length}
+                </span>
+              ) : null}
+            </div>
             <p className="mt-0.5 text-[12px] leading-4 text-muted">
-              {entries.length === 0
-                ? 'No saved briefs'
-                : `${entries.length} saved ${entries.length === 1 ? 'brief' : 'briefs'}`}
+              {source === 'account' ? 'Saved to your account' : 'Saved in this browser'}
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {entries.length > 0 ? (
+            {entries.length > 0 && !loading ? (
               <button
                 type="button"
                 onClick={handleClear}
@@ -130,6 +108,21 @@ export function HistoryDrawer({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {!signedIn ? (
+            <div className="mb-3 flex items-center gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2">
+              <p className="min-w-0 flex-1 text-[12px] leading-5 text-muted">
+                Sign in to sync history across devices.
+              </p>
+              <button
+                type="button"
+                onClick={onSignIn}
+                className="inline-flex h-7 shrink-0 items-center rounded-lg border border-line bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors duration-[160ms] hover:bg-surface-3"
+              >
+                Sign in
+              </button>
+            </div>
+          ) : null}
+
           {error ? (
             <p
               role="alert"
@@ -139,16 +132,15 @@ export function HistoryDrawer({
             </p>
           ) : null}
 
-          {entries.length === 0 ? (
-            <div className="grid h-full place-items-center px-4 text-center">
-              <div>
-                <p className="text-[13px] font-medium text-ink">No saved briefs yet.</p>
-                <p className="mt-1 text-[12px] leading-5 text-muted">
-                  Save a brief to keep a snapshot you can reload.
-                </p>
-              </div>
+          {loading ? (
+            <div className="flex items-center gap-2 py-2 text-[12px] leading-5 text-muted" role="status">
+              <span
+                aria-hidden="true"
+                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-accent"
+              />
+              Loading history...
             </div>
-          ) : (
+          ) : entries.length > 0 ? (
             <ul className="space-y-2">
               {entries.map((entry) => {
                 const title = historyTitle(entry.docs)
@@ -193,11 +185,22 @@ export function HistoryDrawer({
                 )
               })}
             </ul>
+          ) : error ? null : (
+            <div className="grid h-full place-items-center px-4 text-center">
+              <div>
+                <p className="text-[13px] font-medium text-ink">No saved briefs yet.</p>
+                <p className="mt-1 text-[12px] leading-5 text-muted">
+                  Save a brief to keep a snapshot you can reload.
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
         <footer className="border-t border-line px-5 py-3 text-[11.5px] leading-5 text-subtle">
-          Saved in this browser.
+          {source === 'account'
+            ? 'Saved briefs follow you to any device.'
+            : 'Saved briefs stay in this browser.'}
         </footer>
       </div>
     </div>

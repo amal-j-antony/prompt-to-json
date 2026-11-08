@@ -1,5 +1,4 @@
-import type { JSONContent } from '@tiptap/core'
-import type { FieldDocs } from './docs'
+import type { DocNode, FieldDocs } from './docs'
 import { docToItems, docToMarkdown, normalizePath } from './markdown'
 import { PAYLOAD_KEY, type FieldId } from './registry'
 import { BRIEF_SCHEMA_VERSION, BriefSchema, type Brief } from './schema'
@@ -23,7 +22,7 @@ function fieldForSegment(segment: PropertyKey | undefined): FieldId | null {
   return null
 }
 
-function fileReferencesFrom(doc: JSONContent): string[] {
+function fileReferencesFrom(doc: DocNode): string[] {
   const seen = new Set<string>()
   const paths: string[] = []
 

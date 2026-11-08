@@ -1,16 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { UserDto } from '../../shared/api'
 import type { FieldDocs } from '../brief/docs'
 import {
   addEntry,
   HISTORY_KEY,
+  HISTORY_LIMIT,
   parseHistory,
   serializeHistory,
   type HistoryEntry,
 } from '../history/entry'
+import {
+  ApiError,
+  clearHistory,
+  deleteHistoryEntry,
+  listHistory,
+  saveHistory,
+} from '../lib/api'
 
 export type SaveOutcome = 'saved' | 'duplicate' | 'error'
+export type HistorySource = 'browser' | 'account'
 
 export const HISTORY_WRITE_ERROR = 'History is full. Delete an entry and try again.'
+export const ACCOUNT_SAVE_ERROR = 'Save failed. Try again.'
+const ACCOUNT_LOAD_ERROR = 'Could not load your saved briefs.'
+const ACCOUNT_DELETE_ERROR = 'Could not delete that saved brief.'
+const ACCOUNT_CLEAR_ERROR = 'Could not clear your saved briefs.'
+
+export interface SaveOptions {
+  onRetry?(attempt: number): void
+}
+
+export interface HistoryController {
+  entries: HistoryEntry[]
+  source: HistorySource
+  loading: boolean
+  saving: boolean
+  error: string | null
+  save(docs: FieldDocs, options?: SaveOptions): Promise<SaveOutcome>
+  remove(id: string): Promise<void>
+  clear(): Promise<void>
+}
 
 function readHistory(): HistoryEntry[] {
   try {
@@ -34,18 +63,78 @@ function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function useHistory(): {
-  entries: HistoryEntry[]
-  save(docs: FieldDocs): SaveOutcome
-  remove(id: string): void
-  clear(): void
-  error: string | null
-} {
+export function useHistory(user: UserDto | null, ready: boolean): HistoryController {
   const [entries, setEntries] = useState<HistoryEntry[]>(readHistory)
+  const [source, setSource] = useState<HistorySource>('browser')
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const sourceRef = useRef<HistorySource>('browser')
+  const requestRef = useRef(0)
+
+  const applySource = useCallback((next: HistorySource) => {
+    sourceRef.current = next
+    setSource(next)
+  }, [])
+
+  useEffect(() => {
+    if (!ready) return
+
+    requestRef.current += 1
+    const request = requestRef.current
+
+    if (!user) {
+      applySource('browser')
+      setEntries(readHistory())
+      setLoading(false)
+      setError(null)
+      return
+    }
+
+    applySource('account')
+    setEntries([])
+    setLoading(true)
+    setError(null)
+
+    void listHistory()
+      .then((list) => {
+        if (request !== requestRef.current) return
+        setEntries(list)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (request !== requestRef.current) return
+        setLoading(false)
+        setError(ACCOUNT_LOAD_ERROR)
+      })
+  }, [applySource, ready, user])
 
   const save = useCallback(
-    (docs: FieldDocs): SaveOutcome => {
+    async (docs: FieldDocs, options?: SaveOptions): Promise<SaveOutcome> => {
+      if (user) {
+        const request = requestRef.current
+        setSaving(true)
+        setError(null)
+
+        try {
+          const result = await saveHistory(docs, options?.onRetry)
+          if (request === requestRef.current && !result.duplicate) {
+            setEntries((previous) =>
+              [result.entry, ...previous.filter((entry) => entry.id !== result.entry.id)].slice(
+                0,
+                HISTORY_LIMIT,
+              ),
+            )
+          }
+          return result.duplicate ? 'duplicate' : 'saved'
+        } catch {
+          setError(ACCOUNT_SAVE_ERROR)
+          return 'error'
+        } finally {
+          setSaving(false)
+        }
+      }
+
       const next = addEntry(entries, { id: newId(), savedAt: Date.now(), docs })
       if (next === entries) return 'duplicate'
 
@@ -58,11 +147,31 @@ export function useHistory(): {
       setError(null)
       return 'saved'
     },
-    [entries],
+    [entries, user],
   )
 
   const remove = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      if (user) {
+        const request = requestRef.current
+        setError(null)
+
+        try {
+          await deleteHistoryEntry(id)
+        } catch (cause) {
+          const missing = cause instanceof ApiError && cause.status === 404
+          if (!missing) {
+            setError(ACCOUNT_DELETE_ERROR)
+            return
+          }
+        }
+
+        if (request === requestRef.current) {
+          setEntries((previous) => previous.filter((entry) => entry.id !== id))
+        }
+        return
+      }
+
       const next = entries.filter((entry) => entry.id !== id)
       if (!persistHistory(next)) {
         setError(HISTORY_WRITE_ERROR)
@@ -72,10 +181,25 @@ export function useHistory(): {
       setEntries(next)
       setError(null)
     },
-    [entries],
+    [entries, user],
   )
 
-  const clear = useCallback(() => {
+  const clear = useCallback(async () => {
+    if (user) {
+      const request = requestRef.current
+      setError(null)
+
+      try {
+        await clearHistory()
+      } catch {
+        setError(ACCOUNT_CLEAR_ERROR)
+        return
+      }
+
+      if (request === requestRef.current) setEntries([])
+      return
+    }
+
     const next: HistoryEntry[] = []
     if (!persistHistory(next)) {
       setError(HISTORY_WRITE_ERROR)
@@ -84,10 +208,11 @@ export function useHistory(): {
 
     setEntries(next)
     setError(null)
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
+      if (sourceRef.current !== 'browser') return
       if (event.key !== null && event.key !== HISTORY_KEY) return
       setEntries(readHistory())
     }
@@ -96,5 +221,5 @@ export function useHistory(): {
     return () => window.removeEventListener('storage', handleStorage)
   }, [])
 
-  return { entries, save, remove, clear, error }
+  return { entries, source, loading, saving, error, save, remove, clear }
 }

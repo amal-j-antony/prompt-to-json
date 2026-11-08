@@ -5,8 +5,6 @@ export const HISTORY_KEY = 'prompt-studio.history.v1'
 export const HISTORY_LIMIT = 50
 
 const HISTORY_VERSION = 1
-const TITLE_LIMIT = 72
-const ELLIPSIS = '…'
 const MONTHS = [
   'Jan',
   'Feb',
@@ -92,18 +90,7 @@ export function addEntry(
   return [entry, ...entries].slice(0, limit)
 }
 
-export function historyTitle(docs: FieldDocs): string {
-  const firstLine = docToMarkdown(docs.goal).split('\n')[0]
-  const cleaned = firstLine
-    .replace(/^#{1,6}\s*/, '')
-    .replace(/^(?:[-*+]|\d+[.)])\s+/, '')
-    .replace(/[*_`]/g, '')
-    .trim()
-
-  if (!cleaned) return 'Untitled brief'
-  if (cleaned.length <= TITLE_LIMIT) return cleaned
-  return `${cleaned.slice(0, TITLE_LIMIT).trimEnd()}${ELLIPSIS}`
-}
+export { historyTitle } from '../../shared/brief-docs'
 
 export function relativeTime(savedAt: number, now = Date.now()): string {
   const elapsed = Math.max(0, now - savedAt)

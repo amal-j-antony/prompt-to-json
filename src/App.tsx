@@ -1,14 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { History as HistoryIcon, RotateCcw } from 'lucide-react'
 import { compileBrief } from './brief/compile'
 import { FIELD_REGISTRY } from './brief/registry'
 import type { HistoryEntry } from './history/entry'
+import { useAuth } from './state/useAuth'
 import { useBriefDraft } from './state/useBriefDraft'
 import { HISTORY_WRITE_ERROR, useHistory } from './state/useHistory'
+import { useServerStatus } from './state/useServerStatus'
 import { useTheme } from './state/useTheme'
+import { AccountMenu } from './ui/AccountMenu'
+import { AuthDialog } from './ui/AuthDialog'
 import { BriefForm } from './ui/BriefForm'
 import { HistoryDrawer } from './ui/HistoryDrawer'
 import { OutputPanel } from './ui/OutputPanel'
+import { ServerStatusPill } from './ui/ServerStatusPill'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { Toast } from './ui/Toast'
 
@@ -40,19 +45,19 @@ function CompletionMeter({ started }: { started: number }) {
 }
 
 export default function App() {
+  const auth = useAuth()
+  const { user, status: authStatus, busy: authBusy } = auth
+  const { status: serverStatus, check, reportWake } = useServerStatus()
   const { docs, setField, replace, reset, resetToken, started } = useBriefDraft()
-  const { entries, save, remove, clear, error } = useHistory()
+  const { entries, source, loading, saving, save, remove, clear, error } = useHistory(
+    user,
+    authStatus === 'ready',
+  )
   const { preference, setPreference } = useTheme()
   const compiled = useMemo(() => compileBrief(docs), [docs])
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const historyButtonRef = useRef<HTMLButtonElement>(null)
-  const wasHistoryOpen = useRef(false)
-
-  useEffect(() => {
-    if (wasHistoryOpen.current && !historyOpen) historyButtonRef.current?.focus()
-    wasHistoryOpen.current = historyOpen
-  }, [historyOpen])
+  const [authOpen, setAuthOpen] = useState(false)
 
   const notify = useCallback((message: string) => {
     setToast({ id: Date.now(), message })
@@ -62,14 +67,25 @@ export default function App() {
 
   const closeHistory = useCallback(() => setHistoryOpen(false), [])
 
-  const handleSave = useCallback(() => {
+  const closeAuth = useCallback(() => setAuthOpen(false), [])
+
+  const handleSave = useCallback(async () => {
     if (!compiled.ok) return
 
-    const outcome = save(docs)
+    const outcome = await save(docs, {
+      onRetry: () => {
+        notify('Server is waking up. Retrying save.')
+        reportWake()
+      },
+    })
+
     if (outcome === 'saved') notify('Saved to history.')
     else if (outcome === 'duplicate') notify('This brief is already the newest save.')
-    else notify(HISTORY_WRITE_ERROR)
-  }, [compiled, docs, notify, save])
+    else if (source === 'account') {
+      notify('Save failed. Try again.')
+      reportWake()
+    } else notify(HISTORY_WRITE_ERROR)
+  }, [compiled, docs, notify, reportWake, save, source])
 
   const handleLoad = useCallback(
     (entry: HistoryEntry) => {
@@ -85,6 +101,21 @@ export default function App() {
     reset()
     notify('Draft cleared.')
   }
+
+  const handleSignedIn = useCallback(() => {
+    setAuthOpen(false)
+    notify('Signed in.')
+  }, [notify])
+
+  const handleSignOut = useCallback(async () => {
+    const signedOut = await auth.logout()
+    if (signedOut) notify('Signed out.')
+  }, [auth, notify])
+
+  const handleHistorySignIn = useCallback(() => {
+    setHistoryOpen(false)
+    setAuthOpen(true)
+  }, [])
 
   return (
     <div className="app-backdrop min-h-dvh bg-canvas">
@@ -107,10 +138,19 @@ export default function App() {
             </div>
           </div>
 
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <CompletionMeter started={started} />
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <div className="hidden lg:block">
+              <CompletionMeter started={started} />
+            </div>
+            <ServerStatusPill status={serverStatus} onCheck={check} />
+            <AccountMenu
+              key={user?.id ?? 'guest'}
+              user={user}
+              busy={authBusy}
+              onSignIn={() => setAuthOpen(true)}
+              onSignOut={handleSignOut}
+            />
             <button
-              ref={historyButtonRef}
               type="button"
               aria-haspopup="dialog"
               aria-expanded={historyOpen}
@@ -150,12 +190,21 @@ export default function App() {
           />
 
           <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start">
-            <OutputPanel compiled={compiled} onNotify={notify} onSave={handleSave} />
+            <OutputPanel
+              compiled={compiled}
+              saving={saving}
+              onNotify={notify}
+              onSave={handleSave}
+            />
           </div>
         </div>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line pt-4 text-[11.5px] leading-5 text-subtle">
-          <p>Stored in this browser. Nothing is sent anywhere.</p>
+          <p>
+            {user
+              ? 'Saved briefs sync to your account. The draft stays in this browser.'
+              : 'Stored in this browser. Nothing is sent anywhere.'}
+          </p>
           <p>Paste the JSON into your coding agent.</p>
         </footer>
       </main>
@@ -163,12 +212,20 @@ export default function App() {
       {historyOpen ? (
         <HistoryDrawer
           entries={entries}
+          source={source}
+          loading={loading}
           error={error}
+          signedIn={user !== null}
+          onSignIn={handleHistorySignIn}
           onClose={closeHistory}
           onLoad={handleLoad}
           onDelete={remove}
           onClear={clear}
         />
+      ) : null}
+
+      {authOpen ? (
+        <AuthDialog auth={auth} onClose={closeAuth} onSignedIn={handleSignedIn} />
       ) : null}
 
       {toast ? <Toast key={toast.id} message={toast.message} onDismiss={dismissToast} /> : null}

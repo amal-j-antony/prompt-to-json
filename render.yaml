@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: prompt-studio
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/ping
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_DB
+        value: prompt_studio
+      - key: SESSION_TTL_DAYS
+        value: '30'
+      - key: MONGODB_URI
+        sync: false
+      - key: APP_ORIGIN
+        sync: false
