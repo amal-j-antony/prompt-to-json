@@ -109,6 +109,50 @@ async function payloadFrom(page) {
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `${SHOTS}/desktop-light.png`, fullPage: true })
 
+  await page.getByRole('button', { name: 'Save brief' }).click()
+  await page.waitForTimeout(150)
+  check('save shows a toast', (await page.getByRole('status').innerText()).includes('Saved to history'))
+  check(
+    'history count is one',
+    (await page.getByRole('button', { name: /History, 1 saved brief/ }).count()) === 1,
+  )
+
+  await page.getByRole('button', { name: /History, 1 saved brief/ }).click()
+  await page.waitForTimeout(350)
+  const drawer = page.getByRole('dialog')
+  check('history drawer opens', await drawer.isVisible())
+  check(
+    'history row uses the goal as its title',
+    (await drawer.getByText('Ship a settings page with a theme toggle.', { exact: true }).count()) === 1,
+  )
+  await page.screenshot({ path: `${SHOTS}/desktop-light-history.png` })
+  await page.getByRole('button', { name: 'Close history' }).click()
+
+  await page.getByRole('button', { name: 'Save brief' }).click()
+  await page.waitForTimeout(150)
+  check(
+    'second save reports a duplicate',
+    (await page.getByRole('status').innerText()).includes('already the newest save'),
+  )
+  check(
+    'duplicate does not add an entry',
+    (await page.getByRole('button', { name: /History, 1 saved brief/ }).count()) === 1,
+  )
+
+  await editors.nth(0).click()
+  await page.keyboard.press('Control+a')
+  await page.keyboard.type('Changed goal')
+  await page.waitForTimeout(150)
+  check('goal changed before load', (await payloadFrom(page)).goal === 'Changed goal')
+
+  await page.getByRole('button', { name: /History, 1 saved brief/ }).click()
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Load', exact: true }).click()
+  await page.waitForTimeout(300)
+  const restored = await payloadFrom(page)
+  check('load restores the saved goal', restored.goal === payload.goal, restored.goal)
+  check('drawer closes after load', (await page.getByRole('dialog').count()) === 0)
+
   await copyButton.click()
   await page.waitForTimeout(150)
   const clipboard = await page.evaluate(() => navigator.clipboard.readText())
@@ -152,6 +196,23 @@ async function payloadFrom(page) {
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `${SHOTS}/desktop-dark-filled.png`, fullPage: true })
 
+  await page.getByRole('button', { name: /History, 1 saved brief/ }).click()
+  await page.waitForTimeout(350)
+  await page.screenshot({ path: `${SHOTS}/desktop-dark-history.png` })
+  await page.getByRole('button', { name: 'Close history' }).click()
+
+  check(
+    'history survives reload',
+    (await page.getByRole('button', { name: /History, 1 saved brief/ }).count()) === 1,
+  )
+
+  await page.getByRole('button', { name: /History, 1 saved brief/ }).click()
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Delete "Ship a settings page with a theme toggle."' }).click()
+  check('delete empties the list', await page.getByText('No saved briefs yet.').isVisible())
+  await page.screenshot({ path: `${SHOTS}/desktop-light-history-empty.png` })
+  await page.getByRole('button', { name: 'Close history' }).click()
+
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   )
@@ -183,6 +244,10 @@ async function payloadFrom(page) {
   )
   check('no horizontal overflow at 390', mobileOverflow <= 0, mobileOverflow)
   await mobilePage.screenshot({ path: `${SHOTS}/mobile-light.png`, fullPage: true })
+  await mobilePage.getByRole('button', { name: /History, 0 saved briefs/ }).click()
+  await mobilePage.waitForTimeout(350)
+  await mobilePage.screenshot({ path: `${SHOTS}/mobile-history.png` })
+  await mobilePage.getByRole('button', { name: 'Close history' }).click()
   await mobilePage.getByRole('button', { name: 'Dark theme' }).click()
   await mobilePage.screenshot({ path: `${SHOTS}/mobile-dark.png`, fullPage: true })
 

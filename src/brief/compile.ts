@@ -1,9 +1,8 @@
 import type { JSONContent } from '@tiptap/core'
+import type { FieldDocs } from './docs'
 import { docToItems, docToMarkdown, normalizePath } from './markdown'
 import { PAYLOAD_KEY, type FieldId } from './registry'
 import { BRIEF_SCHEMA_VERSION, BriefSchema, type Brief } from './schema'
-
-export type FieldDocs = Record<FieldId, JSONContent>
 
 export interface FieldIssue {
   field: FieldId | null

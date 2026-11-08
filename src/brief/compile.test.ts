@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 import { describe, expect, it } from 'vitest'
-import { compileBrief, type FieldDocs } from './compile'
+import { compileBrief } from './compile'
+import type { FieldDocs } from './docs'
 
 function docWithText(value: string): JSONContent {
   return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: value }] }] }

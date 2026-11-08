@@ -1,10 +1,13 @@
-import { useCallback, useMemo, useState } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { History as HistoryIcon, RotateCcw } from 'lucide-react'
 import { compileBrief } from './brief/compile'
 import { FIELD_REGISTRY } from './brief/registry'
+import type { HistoryEntry } from './history/entry'
 import { useBriefDraft } from './state/useBriefDraft'
+import { HISTORY_WRITE_ERROR, useHistory } from './state/useHistory'
 import { useTheme } from './state/useTheme'
 import { BriefForm } from './ui/BriefForm'
+import { HistoryDrawer } from './ui/HistoryDrawer'
 import { OutputPanel } from './ui/OutputPanel'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { Toast } from './ui/Toast'
@@ -37,10 +40,19 @@ function CompletionMeter({ started }: { started: number }) {
 }
 
 export default function App() {
-  const { docs, setField, reset, resetToken, started } = useBriefDraft()
+  const { docs, setField, replace, reset, resetToken, started } = useBriefDraft()
+  const { entries, save, remove, clear, error } = useHistory()
   const { preference, setPreference } = useTheme()
   const compiled = useMemo(() => compileBrief(docs), [docs])
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const historyButtonRef = useRef<HTMLButtonElement>(null)
+  const wasHistoryOpen = useRef(false)
+
+  useEffect(() => {
+    if (wasHistoryOpen.current && !historyOpen) historyButtonRef.current?.focus()
+    wasHistoryOpen.current = historyOpen
+  }, [historyOpen])
 
   const notify = useCallback((message: string) => {
     setToast({ id: Date.now(), message })
@@ -48,8 +60,28 @@ export default function App() {
 
   const dismissToast = useCallback(() => setToast(null), [])
 
+  const closeHistory = useCallback(() => setHistoryOpen(false), [])
+
+  const handleSave = useCallback(() => {
+    if (!compiled.ok) return
+
+    const outcome = save(docs)
+    if (outcome === 'saved') notify('Saved to history.')
+    else if (outcome === 'duplicate') notify('This brief is already the newest save.')
+    else notify(HISTORY_WRITE_ERROR)
+  }, [compiled, docs, notify, save])
+
+  const handleLoad = useCallback(
+    (entry: HistoryEntry) => {
+      replace(entry.docs)
+      setHistoryOpen(false)
+      notify('Saved brief loaded.')
+    },
+    [notify, replace],
+  )
+
   const handleReset = () => {
-    if (!window.confirm('Clear all four fields and the saved draft?')) return
+    if (!window.confirm('Clear all four fields and the autosaved draft?')) return
     reset()
     notify('Draft cleared.')
   }
@@ -77,6 +109,23 @@ export default function App() {
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <CompletionMeter started={started} />
+            <button
+              ref={historyButtonRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={historyOpen}
+              aria-label={`History, ${entries.length} saved ${
+                entries.length === 1 ? 'brief' : 'briefs'
+              }`}
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-2.5 text-[12px] font-medium text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-ink"
+            >
+              <HistoryIcon aria-hidden="true" size={14} />
+              <span className="hidden xl:inline">History</span>
+              <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-[10.5px] font-semibold leading-4 text-muted">
+                {entries.length}
+              </span>
+            </button>
             <ThemeToggle preference={preference} onChange={setPreference} />
             <button
               type="button"
@@ -101,7 +150,7 @@ export default function App() {
           />
 
           <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start">
-            <OutputPanel compiled={compiled} onNotify={notify} />
+            <OutputPanel compiled={compiled} onNotify={notify} onSave={handleSave} />
           </div>
         </div>
 
@@ -110,6 +159,17 @@ export default function App() {
           <p>Paste the JSON into your coding agent.</p>
         </footer>
       </main>
+
+      {historyOpen ? (
+        <HistoryDrawer
+          entries={entries}
+          error={error}
+          onClose={closeHistory}
+          onLoad={handleLoad}
+          onDelete={remove}
+          onClear={clear}
+        />
+      ) : null}
 
       {toast ? <Toast key={toast.id} message={toast.message} onDismiss={dismissToast} /> : null}
     </div>

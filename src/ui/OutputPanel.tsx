@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react'
 import { useRef, useState } from 'react'
-import { Check, CircleAlert, Copy, Download, Info } from 'lucide-react'
+import { Bookmark, Check, CircleAlert, Copy, Download, Info } from 'lucide-react'
 import type { Compiled } from '../brief/compile'
 import { briefJsonSchema } from '../brief/schema'
 
@@ -30,15 +30,16 @@ function copyWithTextarea(text: string): boolean {
 interface OutputPanelProps {
   compiled: Compiled
   onNotify(message: string): void
+  onSave(): void
 }
 
-export function OutputPanel({ compiled, onNotify }: OutputPanelProps) {
+export function OutputPanel({ compiled, onNotify, onSave }: OutputPanelProps) {
   const [tab, setTab] = useState<OutputTab>('brief')
   const tabRefs = useRef<Partial<Record<OutputTab, HTMLButtonElement | null>>>({})
 
   const goalEmpty = !compiled.ok && compiled.issues.some((issue) => issue.field === 'goal')
   const actionsDisabled = !compiled.ok
-  const disabledReason = 'Fill the goal to unlock copy and download.'
+  const disabledReason = 'Fill the goal to save, copy, or download.'
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number | null = null
@@ -173,6 +174,17 @@ export function OutputPanel({ compiled, onNotify }: OutputPanelProps) {
             {SCHEMA_JSON}
           </pre>
         </div>
+
+        <button
+          type="button"
+          disabled={actionsDisabled}
+          title={actionsDisabled ? disabledReason : undefined}
+          onClick={onSave}
+          className="inline-flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-accent-line bg-accent-soft px-3 text-[13px] font-medium text-accent transition-colors duration-[160ms] hover:border-accent hover:bg-surface-3 disabled:pointer-events-none disabled:opacity-45"
+        >
+          <Bookmark aria-hidden="true" size={15} />
+          Save brief
+        </button>
 
         <div className="flex flex-wrap items-center gap-2">
           <button

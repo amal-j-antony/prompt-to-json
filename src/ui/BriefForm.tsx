@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
-import type { FieldDocs, FieldIssue } from '../brief/compile'
+import type { FieldIssue } from '../brief/compile'
+import type { FieldDocs } from '../brief/docs'
 import { FIELD_REGISTRY, type FieldId } from '../brief/registry'
 import { FieldEditor } from '../editor/FieldEditor'
 import { Icon } from './Icon'
