@@ -14,6 +14,7 @@ Write a goal, constraints, file references, and open questions. Prompt Studio tu
 
 - Four rich-text fields share one editor: bold, italic, inline code, bullet and numbered lists, quotes, headings, undo, and redo. Typing `- `, `1. `, `# `, or `> ` starts the matching block.
 - The right panel updates on every keystroke with the JSON brief. Copy it or download `brief.json`.
+- Clear one field with the eraser in its card. The toast offers Undo, and Ctrl+Z also restores it. The header Reset clears all four fields.
 - The JSON Schema tab shows the draft 2020-12 schema the payload is validated against. Zod generates both from one declaration.
 - Create an account to save briefs to MongoDB Atlas. History is scoped to the account and follows you to any device.
 - Signed-out use still works. Drafts and guest history stay in this browser.
@@ -169,7 +170,7 @@ src/
 
 Colors and spacing live in `src/styles.css` as CSS variables mapped into Tailwind v4 through `@theme inline`. The `dark` class on `<html>` swaps the token set. An inline script in `index.html` applies the stored theme before first paint.
 
-The layout is a two-column workspace at 1024 px and wider, and a single column below that. Every control is a real button or a labelled editor, the toolbar exposes `aria-pressed`, the output tabs follow the WAI-ARIA tabs pattern, and the auth dialog and history drawer share one focus-trap hook.
+The layout is a two-column workspace at 1024 px and wider, and a single column below that. Every action button uses the same hover, pressed, focus, and disabled recipe. Enabled controls show a pointer, disabled controls show not-allowed, and reduced motion removes the transitions. The toolbar exposes `aria-pressed`, the output tabs follow the WAI-ARIA tabs pattern, and the auth dialog and history drawer share one focus-trap hook.
 
 `src/brief/`, `src/history/`, and `shared/` import neither React nor the DOM, so they can move into a workspace package without edits.
 
@@ -179,8 +180,8 @@ The original visual layer was built without Stitch because no Stitch MCP server 
 
 ## Verification
 
-- `npm test` runs 52 unit tests across the serializer, schema, history model, password hashing, rate limiting, origin checks, and document validation.
+- `npm test` runs 55 unit tests across the serializer, schema, history model, password hashing, rate limiting, origin checks, and document validation.
 - `npm run verify:api` runs 30 checks against a real local mongod: signup, sessions, save, duplicate detection, two-user isolation, IDOR, delete, clear, logout, bad credentials, and origin rejection.
-- `npm run verify:ui` runs 38 guest checks in Chrome.
+- `npm run verify:ui` runs 47 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, and reduced motion.
 - `npm run verify:auth` runs 25 account checks: signup, account save, sign-out, second-account isolation, history restore across reload, degraded and recovered status, retry after two simulated 503s, and screenshots.
 - Run the server first for the browser scripts.
