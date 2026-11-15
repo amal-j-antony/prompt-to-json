@@ -1,13 +1,13 @@
-import type { DocNode, FieldDocs } from '../../shared/brief-docs'
+import { emptyDoc, type DocNode, type FieldDocs } from '../../shared/brief-docs'
 
 export type { DocNode, FieldDocs }
-export { docsKey, readDoc } from '../../shared/brief-docs'
 
-export const EMPTY_PARAGRAPH: DocNode = { type: 'paragraph' }
+export { docsKey, emptyDoc, readDoc } from '../../shared/brief-docs'
 
 export const EMPTY_DOCS: FieldDocs = {
-  goal: { type: 'doc', content: [EMPTY_PARAGRAPH] },
-  constraints: { type: 'doc', content: [EMPTY_PARAGRAPH] },
-  files: { type: 'doc', content: [EMPTY_PARAGRAPH] },
-  questions: { type: 'doc', content: [EMPTY_PARAGRAPH] },
+  goal: emptyDoc(),
+  details: emptyDoc(),
+  constraints: emptyDoc(),
+  files: emptyDoc(),
+  questions: emptyDoc(),
 }

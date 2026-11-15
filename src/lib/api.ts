@@ -6,7 +6,7 @@ import type {
   SaveResultDto,
   UserDto,
 } from '../../shared/api'
-import { parseFieldDocs, type FieldDocs } from '../../shared/brief-docs'
+import { DEFAULT_SETTINGS, parseFieldDocs, parseSettings, type BriefSettings, type FieldDocs } from '../../shared/brief-docs'
 
 export class ApiError extends Error {
   readonly status: number
@@ -46,7 +46,12 @@ function readEntry(value: unknown): HistoryEntryDto | null {
   const docs = parseFieldDocs(value.docs)
   if (!docs) return null
 
-  return { id: value.id, savedAt: value.savedAt, docs }
+  return {
+    id: value.id,
+    savedAt: value.savedAt,
+    docs,
+    settings: parseSettings(value.settings) ?? DEFAULT_SETTINGS,
+  }
 }
 
 function unexpectedResponse(): ApiError {
@@ -195,9 +200,10 @@ export async function listHistory(): Promise<HistoryEntryDto[]> {
 
 export async function saveHistory(
   docs: FieldDocs,
+  settings: BriefSettings,
   onRetry?: (attempt: number) => void,
 ): Promise<SaveResultDto> {
-  const request: SaveRequestDto = { docs }
+  const request: SaveRequestDto = { docs, settings }
   const body = await retryJson(
     '/api/history',
     { method: 'POST', body: JSON.stringify(request) },

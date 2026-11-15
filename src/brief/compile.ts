@@ -1,6 +1,9 @@
+import type { BriefSettings, FieldId, WorkKind } from '../../shared/brief-docs'
+import { FIELD_IDS } from '../../shared/brief-docs'
+import { directiveTexts } from './directives'
 import type { DocNode, FieldDocs } from './docs'
 import { docToItems, docToMarkdown, normalizePath } from './markdown'
-import { PAYLOAD_KEY, type FieldId } from './registry'
+import { PAYLOAD_KEY } from './registry'
 import { BRIEF_SCHEMA_VERSION, BriefSchema, type Brief } from './schema'
 
 export interface FieldIssue {
@@ -12,12 +15,11 @@ export type Compiled =
   | { ok: true; payload: Brief; json: string; issues: [] }
   | { ok: false; candidate: unknown; json: string; issues: FieldIssue[] }
 
-const FIELD_IDS = Object.keys(PAYLOAD_KEY) as FieldId[]
-
-function fieldForSegment(segment: PropertyKey | undefined): FieldId | null {
+function fieldForSegment(kind: WorkKind, segment: PropertyKey | undefined): FieldId | null {
   if (typeof segment !== 'string') return null
+  const keys = PAYLOAD_KEY[kind]
   for (const id of FIELD_IDS) {
-    if (PAYLOAD_KEY[id] === segment) return id
+    if (keys[id] === segment) return id
   }
   return null
 }
@@ -36,13 +38,17 @@ function fileReferencesFrom(doc: DocNode): string[] {
   return paths
 }
 
-export function compileBrief(docs: FieldDocs): Compiled {
+export function compileBrief(docs: FieldDocs, settings: BriefSettings): Compiled {
+  const keys = PAYLOAD_KEY[settings.kind]
   const candidate = {
     schemaVersion: BRIEF_SCHEMA_VERSION,
-    goal: docToMarkdown(docs.goal).trim(),
+    kind: settings.kind,
+    [keys.goal]: docToMarkdown(docs.goal).trim(),
+    details: docToMarkdown(docs.details).trim(),
     constraints: docToMarkdown(docs.constraints).trim(),
     fileReferences: fileReferencesFrom(docs.files),
     openQuestions: docToItems(docs.questions),
+    directives: directiveTexts(settings.directives),
   }
 
   const result = BriefSchema.safeParse(candidate)
@@ -61,7 +67,7 @@ export function compileBrief(docs: FieldDocs): Compiled {
     candidate,
     json: JSON.stringify(candidate, null, 2),
     issues: result.error.issues.map((issue) => ({
-      field: fieldForSegment(issue.path[0]),
+      field: fieldForSegment(settings.kind, issue.path[0]),
       message: issue.message,
     })),
   }

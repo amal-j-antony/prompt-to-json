@@ -30,19 +30,20 @@ function copyWithTextarea(text: string): boolean {
 
 interface OutputPanelProps {
   compiled: Compiled
+  primaryLabel: string
   saving: boolean
   onNotify(message: string): void
   onSave(): void
 }
 
-export function OutputPanel({ compiled, saving, onNotify, onSave }: OutputPanelProps) {
+export function OutputPanel({ compiled, primaryLabel, saving, onNotify, onSave }: OutputPanelProps) {
   const [tab, setTab] = useState<OutputTab>('brief')
   const tabRefs = useRef<Partial<Record<OutputTab, HTMLButtonElement | null>>>({})
 
-  const goalEmpty = !compiled.ok && compiled.issues.some((issue) => issue.field === 'goal')
+  const primaryEmpty = !compiled.ok && compiled.issues.some((issue) => issue.field === 'goal')
   const actionsDisabled = !compiled.ok
   const saveDisabled = actionsDisabled || saving
-  const disabledReason = 'Fill the goal to save, copy, or download.'
+  const disabledReason = `Fill the ${primaryLabel.toLowerCase()} to save, copy, or download.`
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number | null = null
@@ -147,10 +148,12 @@ export function OutputPanel({ compiled, saving, onNotify, onSave }: OutputPanelP
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-5 pt-3">
-        {goalEmpty && tab === 'brief' ? (
+        {primaryEmpty && tab === 'brief' ? (
           <p className="flex items-start gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-[12px] leading-5 text-muted">
             <Info aria-hidden="true" size={14} className="mt-0.5 shrink-0 text-subtle" />
-            Add a goal to export this brief.
+            {primaryLabel === 'Issue'
+              ? 'Describe the issue to export this brief.'
+              : 'Add a goal to export this brief.'}
           </p>
         ) : null}
 

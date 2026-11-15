@@ -1,4 +1,4 @@
-import type { FieldDocs } from './brief-docs'
+import type { BriefSettings, FieldDocs } from './brief-docs'
 
 export interface UserDto {
   id: string
@@ -9,6 +9,7 @@ export interface HistoryEntryDto {
   id: string
   savedAt: number
   docs: FieldDocs
+  settings: BriefSettings
 }
 
 export interface SaveResultDto {
@@ -33,6 +34,7 @@ export interface AuthRequestDto {
 
 export interface SaveRequestDto {
   docs: FieldDocs
+  settings: BriefSettings
 }
 
 export interface ApiErrorDto {

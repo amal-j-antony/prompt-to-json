@@ -1,6 +1,6 @@
 import { MongoClient, type Db, type Collection } from 'mongodb'
 import type { ObjectId } from 'mongodb'
-import type { FieldDocs } from '../shared/brief-docs'
+import type { BriefSettings, FieldDocs } from '../shared/brief-docs'
 
 export type UserDoc = {
   _id: ObjectId
@@ -22,6 +22,7 @@ export type BriefDoc = {
   title: string
   savedAt: number
   docs: FieldDocs
+  settings?: BriefSettings
   createdAt: Date
 }
 

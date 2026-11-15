@@ -1,8 +1,30 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, withWakeRetry } from './api'
+import { DEFAULT_SETTINGS, type BriefSettings, type FieldDocs } from '../../shared/brief-docs'
+import { ApiError, listHistory, saveHistory, withWakeRetry } from './api'
+
+function docs(goalText: string): FieldDocs {
+  return {
+    goal: {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: goalText }] }],
+    },
+    details: { type: 'doc', content: [{ type: 'paragraph' }] },
+    constraints: { type: 'doc', content: [{ type: 'paragraph' }] },
+    files: { type: 'doc', content: [{ type: 'paragraph' }] },
+    questions: { type: 'doc', content: [{ type: 'paragraph' }] },
+  }
+}
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe('withWakeRetry', () => {
@@ -61,5 +83,39 @@ describe('withWakeRetry', () => {
 
     expect(error).toBeInstanceOf(ApiError)
     expect(attempt).toHaveBeenCalledTimes(5)
+  })
+})
+
+describe('saveHistory', () => {
+  it('sends docs and settings in the request body', async () => {
+    const settings: BriefSettings = { kind: 'bug', directives: ['plan'] }
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        jsonResponse({
+          entry: { id: 'one', savedAt: 1, docs: docs('Ship it'), settings },
+          duplicate: false,
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await saveHistory(docs('Ship it'), settings)
+
+    const init = fetchMock.mock.calls[0]?.[1]
+    expect(JSON.parse(String(init?.body))).toEqual({ docs: docs('Ship it'), settings })
+    expect(result.duplicate).toBe(false)
+    expect(result.entry.settings).toEqual(settings)
+  })
+})
+
+describe('listHistory', () => {
+  it('defaults settings when the server omits them', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ entries: [{ id: 'one', savedAt: 1, docs: docs('Ship it') }] })),
+    )
+
+    const entries = await listHistory()
+    expect(entries).toHaveLength(1)
+    expect(entries[0]?.settings).toEqual(DEFAULT_SETTINGS)
   })
 })

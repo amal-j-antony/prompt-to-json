@@ -1,11 +1,22 @@
 import { ObjectId } from 'mongodb'
-import { docsKey, historyTitle } from '../shared/brief-docs'
-import type { FieldDocs } from '../shared/brief-docs'
+import {
+  briefKey,
+  DEFAULT_SETTINGS,
+  historyTitle,
+  parseSettings,
+  type BriefSettings,
+  type FieldDocs,
+} from '../shared/brief-docs'
 import type { HistoryEntryDto, SaveResultDto } from '../shared/api'
 import type { BriefDoc, Collections } from './db'
 
 export function toHistoryEntry(brief: BriefDoc): HistoryEntryDto {
-  return { id: brief._id.toHexString(), savedAt: brief.savedAt, docs: brief.docs }
+  return {
+    id: brief._id.toHexString(),
+    savedAt: brief.savedAt,
+    docs: brief.docs,
+    settings: parseSettings(brief.settings) ?? DEFAULT_SETTINGS,
+  }
 }
 
 export async function listBriefs(collections: Collections, userId: ObjectId): Promise<HistoryEntryDto[]> {
@@ -13,9 +24,14 @@ export async function listBriefs(collections: Collections, userId: ObjectId): Pr
   return briefs.map(toHistoryEntry)
 }
 
-export async function saveBrief(collections: Collections, userId: ObjectId, docs: FieldDocs): Promise<SaveResultDto> {
+export async function saveBrief(
+  collections: Collections,
+  userId: ObjectId,
+  docs: FieldDocs,
+  settings: BriefSettings,
+): Promise<SaveResultDto> {
   const newest = await collections.briefs.findOne({ userId }, { sort: { savedAt: -1 } })
-  if (newest && docsKey(newest.docs) === docsKey(docs)) {
+  if (newest && briefKey(newest.docs, toHistoryEntry(newest).settings) === briefKey(docs, settings)) {
     return { entry: toHistoryEntry(newest), duplicate: true }
   }
 
@@ -26,6 +42,7 @@ export async function saveBrief(collections: Collections, userId: ObjectId, docs
     title: historyTitle(docs),
     savedAt,
     docs,
+    settings,
     createdAt: new Date(savedAt),
   }
   await collections.briefs.insertOne(brief)

@@ -4,6 +4,7 @@ import {
   Lock,
   Monitor,
   Moon,
+  NotebookText,
   Sun,
   Target,
   type LucideIcon,
@@ -12,6 +13,7 @@ import type { IconName } from '../brief/registry'
 
 const ICONS: Record<IconName, LucideIcon> = {
   target: Target,
+  note: NotebookText,
   lock: Lock,
   file: FileCode2,
   help: CircleHelp,

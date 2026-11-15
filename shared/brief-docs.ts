@@ -1,4 +1,11 @@
-export type FieldId = 'goal' | 'constraints' | 'files' | 'questions'
+export type FieldId = 'goal' | 'details' | 'constraints' | 'files' | 'questions'
+export type WorkKind = 'feature' | 'bug'
+export type DirectiveId = 'plan' | 'test-first' | 'ask-first'
+
+export interface BriefSettings {
+  kind: WorkKind
+  directives: DirectiveId[]
+}
 
 export type DocMark = {
   type: string
@@ -15,7 +22,15 @@ export type DocNode = {
 
 export type FieldDocs = Record<FieldId, DocNode>
 
-export const FIELD_IDS: readonly FieldId[] = ['goal', 'constraints', 'files', 'questions']
+export const DEFAULT_SETTINGS: BriefSettings = { kind: 'feature', directives: [] }
+export const FIELD_IDS: readonly FieldId[] = [
+  'goal',
+  'details',
+  'constraints',
+  'files',
+  'questions',
+]
+export const DIRECTIVE_IDS: readonly DirectiveId[] = ['plan', 'test-first', 'ask-first']
 
 const ALLOWED_NODE_TYPES = new Set([
   'doc',
@@ -84,20 +99,53 @@ export function readDoc(value: unknown): DocNode | null {
   return isDoc(value) ? value : null
 }
 
+export function emptyDoc(): DocNode {
+  return { type: 'doc', content: [{ type: 'paragraph' }] }
+}
+
 export function parseFieldDocs(value: unknown): FieldDocs | null {
   if (!isRecord(value)) return null
 
   const docs = {} as FieldDocs
   for (const id of FIELD_IDS) {
     const doc = readDoc(value[id])
-    if (!doc) return null
-    docs[id] = doc
+    if (doc) {
+      docs[id] = doc
+      continue
+    }
+    if (id === 'details') {
+      docs[id] = emptyDoc()
+      continue
+    }
+    return null
   }
   return docs
 }
 
+export function parseSettings(value: unknown): BriefSettings | null {
+  if (!isRecord(value)) return null
+
+  const kind = value.kind
+  if (kind !== 'feature' && kind !== 'bug') return null
+  if (!Array.isArray(value.directives)) return null
+
+  const directives: DirectiveId[] = []
+  for (const item of value.directives) {
+    if (typeof item !== 'string') return null
+    const id = DIRECTIVE_IDS.find((directive) => directive === item)
+    if (!id) return null
+    if (!directives.includes(id)) directives.push(id)
+  }
+
+  return { kind, directives }
+}
+
 export function docsKey(docs: FieldDocs): string {
   return JSON.stringify(docs)
+}
+
+export function briefKey(docs: FieldDocs, settings: BriefSettings): string {
+  return JSON.stringify({ docs, settings })
 }
 
 function nodeText(node: DocNode, depth = 0): string {

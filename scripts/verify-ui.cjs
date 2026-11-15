@@ -35,7 +35,11 @@ async function payloadFrom(page) {
 
   await page.goto(BASE_URL)
   await page.waitForSelector('.ProseMirror')
-  check('four editors render', (await page.locator('.ProseMirror').count()) === 4)
+  check('five editors render', (await page.locator('.ProseMirror').count()) === 5)
+  check(
+    'five field badges render',
+    (await page.locator('section.field-shell header > span.font-mono').count()) === 5,
+  )
   check(
     'no required error before the user types',
     (await page.getByText('Add a goal before exporting.').count()) === 0,
@@ -62,20 +66,24 @@ async function payloadFrom(page) {
   const editors = page.locator('.ProseMirror')
 
   await editors.nth(0).click()
-  const boldButton = page.locator('section.field-shell').nth(0).getByRole('button', { name: /Bold \(/ })
+  const goalSection = page.locator('section.field-shell', { has: page.locator('#field-goal-label') })
+  const boldButton = goalSection.getByRole('button', { name: /Bold \(/ })
   await boldButton.click()
   await page.keyboard.type('Ship a settings page')
   await boldButton.click()
   await page.keyboard.type(' with a theme toggle.')
 
   await editors.nth(1).click()
+  await page.keyboard.type('Dark mode persists across reloads.')
+
+  await editors.nth(2).click()
   await page.keyboard.type('- Stay client-only')
   await page.keyboard.press('Enter')
   await page.keyboard.type('No new dependencies')
   await page.keyboard.press('Enter')
   await page.keyboard.press('Enter')
 
-  await editors.nth(2).click()
+  await editors.nth(3).click()
   await page.keyboard.type('- src/state/useTheme.ts')
   await page.keyboard.press('Enter')
   await page.keyboard.type('src/App.tsx')
@@ -84,7 +92,7 @@ async function payloadFrom(page) {
   await page.keyboard.press('Enter')
   await page.keyboard.press('Enter')
 
-  await editors.nth(3).click()
+  await editors.nth(4).click()
   await page.keyboard.type('- Should the toggle follow the OS?')
   await page.keyboard.press('Enter')
   await page.keyboard.type('Which icon set should ship?')
@@ -92,8 +100,14 @@ async function payloadFrom(page) {
   await page.waitForTimeout(500)
 
   const payload = await payloadFrom(page)
-  check('schemaVersion is 1.0', payload.schemaVersion === '1.0', payload.schemaVersion)
+  check('schemaVersion is 2.0', payload.schemaVersion === '2.0', payload.schemaVersion)
+  check('kind is a feature', payload.kind === 'feature', payload.kind)
   check('goal keeps bold markdown', payload.goal.startsWith('**Ship a settings page**'), payload.goal)
+  check(
+    'details keep their text',
+    payload.details === 'Dark mode persists across reloads.',
+    payload.details,
+  )
   check(
     'constraints keep bullet markdown',
     payload.constraints.includes('- Stay client-only') &&
@@ -107,6 +121,7 @@ async function payloadFrom(page) {
     JSON.stringify(payload.fileReferences),
   )
   check('open questions split into two items', payload.openQuestions.length === 2, payload.openQuestions)
+  check('directives start empty', payload.directives.length === 0, payload.directives)
 
   check('status reads Valid', (await page.getByText('Valid', { exact: true }).count()) === 1)
   const copyButton = page.getByRole('button', { name: 'Copy JSON' })
@@ -132,7 +147,7 @@ async function payloadFrom(page) {
   check('per-field clear empties only the goal', (await payloadFrom(page)).goal === '')
   check(
     'per-field clear leaves other fields intact',
-    (await editors.nth(1).innerText()).includes('Stay client-only'),
+    (await editors.nth(2).innerText()).includes('Stay client-only'),
   )
   const clearToast = page.getByRole('status')
   check('clear offers an undo action', (await clearToast.innerText()).includes('Undo'))
@@ -162,6 +177,7 @@ async function payloadFrom(page) {
     'history row uses the goal as its title',
     (await drawer.getByText('Ship a settings page with a theme toggle.', { exact: true }).count()) === 1,
   )
+  check('history rows count five fields', (await drawer.innerText()).includes('of 5 fields'))
   await page.screenshot({ path: `${SHOTS}/desktop-light-history.png` })
   await page.getByRole('button', { name: 'Close history' }).click()
 
@@ -262,8 +278,77 @@ async function payloadFrom(page) {
   check('reset clears the goal', afterReset.goal === '')
   check(
     'reset clears stored draft',
-    (await page.evaluate(() => localStorage.getItem('prompt-studio.draft.v1'))) === null,
+    (await page.evaluate(() => localStorage.getItem('prompt-studio.draft.v2'))) === null,
   )
+
+  await page.getByRole('button', { name: 'Bug', exact: true }).click()
+  await page.waitForTimeout(150)
+  check(
+    'bug mode relabels the first field',
+    (await page.locator('#field-goal-label').innerText()) === 'Issue',
+  )
+  check(
+    'bug mode explains the missing issue',
+    (await page.getByText('Describe the issue to export this brief.').count()) === 1,
+  )
+
+  await editors.nth(0).click()
+  await page.keyboard.type('Theme resets to light after every reload.')
+  await page.waitForTimeout(150)
+  const bugPayload = await payloadFrom(page)
+  check('bug payload kind is bug', bugPayload.kind === 'bug', bugPayload.kind)
+  check(
+    'bug payload uses the issue key',
+    bugPayload.issue === 'Theme resets to light after every reload.',
+    bugPayload.issue,
+  )
+  check('bug payload has no goal key', !('goal' in bugPayload), Object.keys(bugPayload).join(','))
+
+  await page.getByRole('button', { name: 'Feature', exact: true }).click()
+  await page.waitForTimeout(150)
+  check(
+    'switching back restores the goal heading',
+    (await page.locator('#field-goal-label').innerText()) === 'Goal',
+  )
+  check(
+    'switching modes keeps the editor text',
+    (await editors.nth(0).innerText()).includes('Theme resets to light'),
+  )
+  await page.getByRole('button', { name: 'Bug', exact: true }).click()
+  await page.waitForTimeout(150)
+
+  await page.getByRole('button', { name: 'Plan first' }).click()
+  await page.waitForTimeout(150)
+  check(
+    'plan directive appends its sentence',
+    (await payloadFrom(page)).directives[0] ===
+      'Create a plan only. Do not edit the codebase until the user approves the plan.',
+  )
+
+  await editors.nth(1).click()
+  await page.keyboard.type('Steps: set dark, reload. Expected dark. Actual light.')
+  await page.waitForTimeout(500)
+  check(
+    'details land in the bug payload',
+    (await payloadFrom(page)).details.includes('Steps: set dark, reload.'),
+  )
+
+  await page.reload()
+  await page.waitForSelector('.ProseMirror')
+  const afterBugReload = await payloadFrom(page)
+  check('bug mode survives reload', afterBugReload.kind === 'bug', afterBugReload.kind)
+  check(
+    'bug issue survives reload',
+    afterBugReload.issue === bugPayload.issue,
+    afterBugReload.issue,
+  )
+  check('directive survives reload', afterBugReload.directives.length === 1, afterBugReload.directives)
+  check(
+    'bug heading survives reload',
+    (await page.locator('#field-goal-label').innerText()) === 'Issue',
+  )
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({ path: `${SHOTS}/desktop-dark-bug.png`, fullPage: true })
 
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },

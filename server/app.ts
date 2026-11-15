@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import express, { type Express, type NextFunction, type Request, type RequestHandler, type Response } from 'express'
 import { MongoServerError, ObjectId } from 'mongodb'
-import { parseFieldDocs } from '../shared/brief-docs'
-import type { FieldDocs } from '../shared/brief-docs'
+import { DEFAULT_SETTINGS, parseFieldDocs, parseSettings } from '../shared/brief-docs'
+import type { BriefSettings, FieldDocs } from '../shared/brief-docs'
 import type { HealthDto, MeDto, UserDto } from '../shared/api'
 import { clearSessionCookieOptions, DUMMY_PASSWORD_HASH, hashPassword, hashToken, isSessionToken, isValidEmail, isValidPassword, issueSession, normalizeEmail, parseCookies, SESSION_COOKIE, sessionCookieOptions, sessionTtlMs, toUserDto, verifyPassword } from './auth'
 import type { AppConfig } from './config'
@@ -51,12 +51,24 @@ function readAuthInput(body: unknown): AuthInput | null {
   return { email, password: rawPassword }
 }
 
-function readDocs(body: unknown): FieldDocs | null {
-  if (!isRecord(body)) return null
+type SaveInput =
+  | { ok: true; docs: FieldDocs; settings: BriefSettings }
+  | { ok: false; code: 'invalid_docs' | 'invalid_settings' }
+
+function readSaveInput(body: unknown): SaveInput {
+  if (!isRecord(body)) return { ok: false, code: 'invalid_docs' }
+
   const docs = parseFieldDocs(body.docs)
-  if (!docs) return null
-  if (JSON.stringify(docs).length > MAX_DOCS_BYTES) return null
-  return docs
+  if (!docs) return { ok: false, code: 'invalid_docs' }
+
+  const settings = body.settings === undefined ? DEFAULT_SETTINGS : parseSettings(body.settings)
+  if (!settings) return { ok: false, code: 'invalid_settings' }
+
+  if (JSON.stringify({ docs, settings }).length > MAX_DOCS_BYTES) {
+    return { ok: false, code: 'invalid_docs' }
+  }
+
+  return { ok: true, docs, settings }
 }
 
 function sendDbUnavailable(res: Response): void {
@@ -278,13 +290,14 @@ export function createApp(deps: AppDependencies): Express {
     '/api/history',
     requireUser(db),
     withDb(db, async (req, res, collections) => {
-      const docs = readDocs(req.body)
-      if (!docs) {
-        res.status(400).json({ error: 'Invalid docs', code: 'invalid_docs' })
+      const input = readSaveInput(req.body)
+      if (!input.ok) {
+        const message = input.code === 'invalid_settings' ? 'Invalid settings' : 'Invalid docs'
+        res.status(400).json({ error: message, code: input.code })
         return
       }
       const user = getRequestUser(req)
-      const result = await saveBrief(collections, user._id, docs)
+      const result = await saveBrief(collections, user._id, input.docs, input.settings)
       res.json(result)
     }),
   )

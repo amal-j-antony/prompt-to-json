@@ -1,5 +1,6 @@
 import { Trash2, X } from 'lucide-react'
 import { useRef } from 'react'
+import { FIELD_IDS } from '../../shared/brief-docs'
 import {
   fieldCount,
   historyTitle,
@@ -155,7 +156,7 @@ export function HistoryDrawer({
                             {relativeTime(entry.savedAt)}
                           </time>
                           {' · '}
-                          {fieldCount(entry.docs)} of 4 fields
+                          {fieldCount(entry.docs)} of {FIELD_IDS.length} fields
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">

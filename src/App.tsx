@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { History as HistoryIcon, RotateCcw } from 'lucide-react'
 import { compileBrief } from './brief/compile'
-import { FIELD_REGISTRY } from './brief/registry'
+import { FIELD_REGISTRY, fieldView } from './brief/registry'
 import type { HistoryEntry } from './history/entry'
 import { useAuth } from './state/useAuth'
 import { useBriefDraft } from './state/useBriefDraft'
@@ -49,13 +49,23 @@ export default function App() {
   const auth = useAuth()
   const { user, status: authStatus, busy: authBusy } = auth
   const { status: serverStatus, check, reportWake } = useServerStatus()
-  const { docs, setField, replace, reset, resetToken, started } = useBriefDraft()
+  const {
+    docs,
+    settings,
+    setField,
+    setKind,
+    toggleDirective,
+    replace,
+    reset,
+    resetToken,
+    started,
+  } = useBriefDraft()
   const { entries, source, loading, saving, save, remove, clear, error } = useHistory(
     user,
     authStatus === 'ready',
   )
   const { preference, setPreference } = useTheme()
-  const compiled = useMemo(() => compileBrief(docs), [docs])
+  const compiled = useMemo(() => compileBrief(docs, settings), [docs, settings])
   const [toast, setToast] = useState<{
     id: number
     message: string
@@ -77,7 +87,7 @@ export default function App() {
   const handleSave = useCallback(async () => {
     if (!compiled.ok) return
 
-    const outcome = await save(docs, {
+    const outcome = await save(docs, settings, {
       onRetry: () => {
         notify('Server is waking up. Retrying save.')
         reportWake()
@@ -90,11 +100,11 @@ export default function App() {
       notify('Save failed. Try again.')
       reportWake()
     } else notify(HISTORY_WRITE_ERROR)
-  }, [compiled, docs, notify, reportWake, save, source])
+  }, [compiled, docs, notify, reportWake, save, settings, source])
 
   const handleLoad = useCallback(
     (entry: HistoryEntry) => {
-      replace(entry.docs)
+      replace(entry.docs, entry.settings)
       setHistoryOpen(false)
       notify('Saved brief loaded.')
     },
@@ -102,7 +112,7 @@ export default function App() {
   )
 
   const handleReset = () => {
-    if (!window.confirm('Clear all four fields and the autosaved draft?')) return
+    if (!window.confirm('Clear all five fields, the work type, and the autosaved draft?')) return
     reset()
     notify('Draft cleared.')
   }
@@ -138,7 +148,7 @@ export default function App() {
                 Prompt Studio
               </h1>
               <p className="hidden text-[12px] leading-4 text-muted sm:block">
-                Four fields in. One agent-ready brief out.
+                Five fields in. One agent-ready brief out.
               </p>
             </div>
           </div>
@@ -191,15 +201,19 @@ export default function App() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <BriefForm
             docs={docs}
+            settings={settings}
             issues={started > 0 ? compiled.issues : []}
             resetToken={resetToken}
             onChange={setField}
+            onKindChange={setKind}
+            onToggleDirective={toggleDirective}
             onNotify={notify}
           />
 
           <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start">
             <OutputPanel
               compiled={compiled}
+              primaryLabel={fieldView(FIELD_REGISTRY[0], settings.kind).label}
               saving={saving}
               onNotify={notify}
               onSave={handleSave}

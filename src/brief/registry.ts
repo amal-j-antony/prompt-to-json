@@ -1,9 +1,12 @@
+import type { FieldId, WorkKind } from '../../shared/brief-docs'
 import type { ToolbarActionId } from '../editor/actions'
 
-export type FieldId = 'goal' | 'constraints' | 'files' | 'questions'
+export type { FieldId, WorkKind }
+
 export type PayloadKind = 'markdown' | 'items'
 export type IconName =
   | 'target'
+  | 'note'
   | 'lock'
   | 'file'
   | 'help'
@@ -21,14 +24,43 @@ export interface FieldSpec {
   required: boolean
   toolbar: readonly ToolbarActionId[]
   badge: string
+  bugLabel?: string
+  bugHint?: string
+  bugPlaceholder?: string
 }
 
-export const PAYLOAD_KEY = {
-  goal: 'goal',
-  constraints: 'constraints',
-  files: 'fileReferences',
-  questions: 'openQuestions',
-} as const
+export const PAYLOAD_KEY: Record<WorkKind, Record<FieldId, string>> = {
+  feature: {
+    goal: 'goal',
+    details: 'details',
+    constraints: 'constraints',
+    files: 'fileReferences',
+    questions: 'openQuestions',
+  },
+  bug: {
+    goal: 'issue',
+    details: 'details',
+    constraints: 'constraints',
+    files: 'fileReferences',
+    questions: 'openQuestions',
+  },
+}
+
+export const KIND_REGISTRY: readonly { id: WorkKind; label: string }[] = [
+  { id: 'feature', label: 'Feature' },
+  { id: 'bug', label: 'Bug' },
+]
+
+export function fieldView(spec: FieldSpec, kind: WorkKind): FieldSpec {
+  if (kind === 'feature') return spec
+
+  return {
+    ...spec,
+    label: spec.bugLabel ?? spec.label,
+    hint: spec.bugHint ?? spec.hint,
+    placeholder: spec.bugPlaceholder ?? spec.placeholder,
+  }
+}
 
 const FULL_TOOLBAR: readonly ToolbarActionId[] = [
   'bold',
@@ -52,6 +84,22 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     required: true,
     toolbar: FULL_TOOLBAR,
     badge: '01',
+    bugLabel: 'Issue',
+    bugHint: 'What is broken, and how it shows up.',
+    bugPlaceholder: 'Theme resets to light after every reload.',
+  },
+  {
+    id: 'details',
+    label: 'Details',
+    hint: 'Acceptance criteria, non-goals, and the edge cases that matter.',
+    placeholder: 'Dark mode persists across reloads. Signed-out users keep the OS default.',
+    icon: 'note',
+    kind: 'markdown',
+    required: false,
+    toolbar: FULL_TOOLBAR,
+    badge: '02',
+    bugHint: 'Steps to reproduce, expected versus actual, and anything the repo cannot show.',
+    bugPlaceholder: 'Steps: set dark, reload. Expected dark. Actual light. Chrome 138.',
   },
   {
     id: 'constraints',
@@ -62,7 +110,7 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'markdown',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '02',
+    badge: '03',
   },
   {
     id: 'files',
@@ -73,7 +121,7 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'items',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '03',
+    badge: '04',
   },
   {
     id: 'questions',
@@ -84,6 +132,6 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'items',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '04',
+    badge: '05',
   },
 ]

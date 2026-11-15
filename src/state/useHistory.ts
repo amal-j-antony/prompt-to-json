@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UserDto } from '../../shared/api'
+import type { BriefSettings } from '../../shared/brief-docs'
 import type { FieldDocs } from '../brief/docs'
 import {
   addEntry,
@@ -36,7 +37,7 @@ export interface HistoryController {
   loading: boolean
   saving: boolean
   error: string | null
-  save(docs: FieldDocs, options?: SaveOptions): Promise<SaveOutcome>
+  save(docs: FieldDocs, settings: BriefSettings, options?: SaveOptions): Promise<SaveOutcome>
   remove(id: string): Promise<void>
   clear(): Promise<void>
 }
@@ -110,14 +111,18 @@ export function useHistory(user: UserDto | null, ready: boolean): HistoryControl
   }, [applySource, ready, user])
 
   const save = useCallback(
-    async (docs: FieldDocs, options?: SaveOptions): Promise<SaveOutcome> => {
+    async (
+      docs: FieldDocs,
+      settings: BriefSettings,
+      options?: SaveOptions,
+    ): Promise<SaveOutcome> => {
       if (user) {
         const request = requestRef.current
         setSaving(true)
         setError(null)
 
         try {
-          const result = await saveHistory(docs, options?.onRetry)
+          const result = await saveHistory(docs, settings, options?.onRetry)
           if (request === requestRef.current && !result.duplicate) {
             setEntries((previous) =>
               [result.entry, ...previous.filter((entry) => entry.id !== result.entry.id)].slice(
@@ -135,7 +140,7 @@ export function useHistory(user: UserDto | null, ready: boolean): HistoryControl
         }
       }
 
-      const next = addEntry(entries, { id: newId(), savedAt: Date.now(), docs })
+      const next = addEntry(entries, { id: newId(), savedAt: Date.now(), docs, settings })
       if (next === entries) return 'duplicate'
 
       if (!persistHistory(next)) {

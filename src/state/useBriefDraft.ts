@@ -1,37 +1,72 @@
 import type { JSONContent } from '@tiptap/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { z } from 'zod'
-import { EMPTY_DOCS, readDoc, type FieldDocs } from '../brief/docs'
+import {
+  DEFAULT_SETTINGS,
+  parseFieldDocs,
+  parseSettings,
+  type BriefSettings,
+  type DirectiveId,
+  type WorkKind,
+} from '../../shared/brief-docs'
+import { EMPTY_DOCS, type FieldDocs } from '../brief/docs'
 import { fieldHasContent } from '../brief/markdown'
 import { FIELD_REGISTRY, type FieldId } from '../brief/registry'
 
-const DRAFT_KEY = 'prompt-studio.draft.v1'
-const DRAFT_VERSION = 1
+const DRAFT_KEY = 'prompt-studio.draft.v2'
+const LEGACY_DRAFT_KEY = 'prompt-studio.draft.v1'
+const DRAFT_VERSION = 2
 const SAVE_DELAY = 300
 
-const StoredDraftSchema = z.object({
-  version: z.literal(DRAFT_VERSION),
-  docs: z
-    .object({
-      goal: z.unknown(),
-      constraints: z.unknown(),
-      files: z.unknown(),
-      questions: z.unknown(),
-    })
-    .partial(),
-})
+interface Draft {
+  docs: FieldDocs
+  settings: BriefSettings
+}
 
-function readDraft(): string | null {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseDraft(raw: string | null): Draft | null {
+  if (!raw) return null
+
+  let parsed: unknown
   try {
-    return window.localStorage.getItem(DRAFT_KEY)
+    parsed = JSON.parse(raw)
   } catch {
     return null
   }
+
+  if (!isRecord(parsed)) return null
+  if (parsed.version !== DRAFT_VERSION && parsed.version !== 1) return null
+
+  const docs = parseFieldDocs(parsed.docs)
+  if (!docs) return null
+
+  return { docs, settings: parseSettings(parsed.settings) ?? DEFAULT_SETTINGS }
 }
 
-function writeDraft(docs: FieldDocs): void {
+function readDraft(): Draft {
+  const empty: Draft = { docs: EMPTY_DOCS, settings: DEFAULT_SETTINGS }
+
   try {
-    window.localStorage.setItem(DRAFT_KEY, serializeDraft(docs))
+    const current = parseDraft(window.localStorage.getItem(DRAFT_KEY))
+    if (current) return current
+
+    const legacy = parseDraft(window.localStorage.getItem(LEGACY_DRAFT_KEY))
+    return legacy ?? empty
+  } catch {
+    return empty
+  }
+}
+
+function serializeDraft(draft: Draft): string {
+  return JSON.stringify({ version: DRAFT_VERSION, docs: draft.docs, settings: draft.settings })
+}
+
+function writeDraft(draft: Draft): void {
+  try {
+    window.localStorage.setItem(DRAFT_KEY, serializeDraft(draft))
+    window.localStorage.removeItem(LEGACY_DRAFT_KEY)
   } catch {
     return
   }
@@ -40,76 +75,87 @@ function writeDraft(docs: FieldDocs): void {
 function clearDraft(): void {
   try {
     window.localStorage.removeItem(DRAFT_KEY)
+    window.localStorage.removeItem(LEGACY_DRAFT_KEY)
   } catch {
     return
   }
 }
 
-function loadDocs(): FieldDocs {
-  try {
-    const raw = readDraft()
-    if (!raw) return EMPTY_DOCS
-
-    const parsed = StoredDraftSchema.safeParse(JSON.parse(raw))
-    if (!parsed.success) return EMPTY_DOCS
-
-    return {
-      goal: readDoc(parsed.data.docs.goal) ?? EMPTY_DOCS.goal,
-      constraints: readDoc(parsed.data.docs.constraints) ?? EMPTY_DOCS.constraints,
-      files: readDoc(parsed.data.docs.files) ?? EMPTY_DOCS.files,
-      questions: readDoc(parsed.data.docs.questions) ?? EMPTY_DOCS.questions,
-    }
-  } catch {
-    return EMPTY_DOCS
-  }
-}
-
-function serializeDraft(docs: FieldDocs): string {
-  return JSON.stringify({ version: DRAFT_VERSION, docs })
+function isDirty(draft: Draft): boolean {
+  return (
+    draft.docs !== EMPTY_DOCS ||
+    draft.settings.kind !== DEFAULT_SETTINGS.kind ||
+    draft.settings.directives.length > 0
+  )
 }
 
 export function useBriefDraft(): {
   docs: FieldDocs
+  settings: BriefSettings
   setField(id: FieldId, doc: JSONContent): void
-  replace(docs: FieldDocs): void
+  setKind(kind: WorkKind): void
+  toggleDirective(id: DirectiveId): void
+  replace(docs: FieldDocs, settings: BriefSettings): void
   reset(): void
   resetToken: number
   started: number
 } {
-  const [docs, setDocs] = useState<FieldDocs>(loadDocs)
+  const [draft, setDraft] = useState<Draft>(readDraft)
   const [resetToken, setResetToken] = useState(0)
-  const docsRef = useRef(docs)
+  const draftRef = useRef(draft)
 
   useEffect(() => {
-    docsRef.current = docs
-  }, [docs])
+    draftRef.current = draft
+  }, [draft])
 
   const setField = useCallback((id: FieldId, doc: JSONContent) => {
-    setDocs((previous) => (previous[id] === doc ? previous : { ...previous, [id]: doc }))
+    setDraft((previous) =>
+      previous.docs[id] === doc
+        ? previous
+        : { ...previous, docs: { ...previous.docs, [id]: doc } },
+    )
   }, [])
 
-  const replace = useCallback((next: FieldDocs) => {
-    setDocs(next)
+  const setKind = useCallback((kind: WorkKind) => {
+    setDraft((previous) =>
+      previous.settings.kind === kind
+        ? previous
+        : { ...previous, settings: { ...previous.settings, kind } },
+    )
+  }, [])
+
+  const toggleDirective = useCallback((id: DirectiveId) => {
+    setDraft((previous) => {
+      const selected = previous.settings.directives
+      const next = selected.includes(id)
+        ? selected.filter((directive) => directive !== id)
+        : [...selected, id]
+      return { ...previous, settings: { ...previous.settings, directives: next } }
+    })
+  }, [])
+
+  const replace = useCallback((docs: FieldDocs, settings: BriefSettings) => {
+    setDraft({ docs, settings })
     setResetToken((token) => token + 1)
   }, [])
 
   const reset = useCallback(() => {
     clearDraft()
-    setDocs(EMPTY_DOCS)
+    setDraft({ docs: EMPTY_DOCS, settings: DEFAULT_SETTINGS })
     setResetToken((token) => token + 1)
   }, [])
 
   useEffect(() => {
-    if (docs === EMPTY_DOCS) return
+    if (!isDirty(draft)) return
 
-    const timer = window.setTimeout(() => writeDraft(docs), SAVE_DELAY)
+    const timer = window.setTimeout(() => writeDraft(draft), SAVE_DELAY)
     return () => window.clearTimeout(timer)
-  }, [docs])
+  }, [draft])
 
   useEffect(() => {
     const flush = () => {
-      const current = docsRef.current
-      if (current === EMPTY_DOCS) return
+      const current = draftRef.current
+      if (!isDirty(current)) return
       writeDraft(current)
     }
 
@@ -120,11 +166,21 @@ export function useBriefDraft(): {
   const started = useMemo(
     () =>
       FIELD_REGISTRY.reduce(
-        (count, spec) => (fieldHasContent(spec.kind, docs[spec.id]) ? count + 1 : count),
+        (count, spec) => (fieldHasContent(spec.kind, draft.docs[spec.id]) ? count + 1 : count),
         0,
       ),
-    [docs],
+    [draft.docs],
   )
 
-  return { docs, setField, replace, reset, resetToken, started }
+  return {
+    docs: draft.docs,
+    settings: draft.settings,
+    setField,
+    setKind,
+    toggleDirective,
+    replace,
+    reset,
+    resetToken,
+    started,
+  }
 }

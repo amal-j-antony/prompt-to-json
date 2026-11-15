@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_SETTINGS, type BriefSettings } from '../../shared/brief-docs'
 import { EMPTY_DOCS, type FieldDocs } from '../brief/docs'
 import {
   addEntry,
@@ -26,12 +27,17 @@ function docs(overrides: Partial<FieldDocs> = {}): FieldDocs {
   return { ...EMPTY_DOCS, ...overrides }
 }
 
-function entry(id: string, savedAt: number, fieldDocs: FieldDocs = docs()): HistoryEntry {
-  return { id, savedAt, docs: fieldDocs }
+function entry(
+  id: string,
+  savedAt: number,
+  fieldDocs: FieldDocs = docs(),
+  settings: BriefSettings = DEFAULT_SETTINGS,
+): HistoryEntry {
+  return { id, savedAt, docs: fieldDocs, settings }
 }
 
-function raw(entries: unknown[]): string {
-  return JSON.stringify({ version: 1, entries })
+function raw(entries: unknown[], version = 2): string {
+  return JSON.stringify({ version, entries })
 }
 
 describe('historyTitle', () => {
@@ -109,7 +115,7 @@ describe('parseHistory', () => {
   it('handles null and bad JSON, drops invalid entries, sorts newest first, and caps at 50', () => {
     expect(parseHistory(null)).toEqual([])
     expect(parseHistory('{')).toEqual([])
-    expect(parseHistory('{"version":2,"entries":[]}')).toEqual([])
+    expect(parseHistory('{"version":3,"entries":[]}')).toEqual([])
 
     const older = entry('older', 1_000, docs({ goal: paragraphDoc('Older') }))
     const newer = entry('newer', 3_000, docs({ goal: paragraphDoc('Newer') }))
@@ -130,9 +136,39 @@ describe('parseHistory', () => {
     expect(capped.at(-1)?.id).toBe('e5')
   })
 
-  it('serializes the versioned envelope', () => {
-    const newest = entry('one', 1_000)
-    expect(serializeHistory([newest])).toBe(JSON.stringify({ version: 1, entries: [newest] }))
+  it('loads a version 1 entry with default settings', () => {
+    const legacyEntry = {
+      id: 'legacy',
+      savedAt: 1_000,
+      docs: {
+        goal: paragraphDoc('Old brief'),
+        constraints: paragraphDoc(''),
+        files: paragraphDoc(''),
+        questions: paragraphDoc(''),
+      },
+    }
+
+    const parsed = parseHistory(raw([legacyEntry], 1))
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]?.settings).toEqual(DEFAULT_SETTINGS)
+  })
+
+  it('defaults settings when an entry carries invalid settings', () => {
+    const parsed = parseHistory(
+      raw([{ id: 'odd', savedAt: 1_000, docs: docs(), settings: { kind: 'task', directives: [] } }]),
+    )
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]?.settings).toEqual(DEFAULT_SETTINGS)
+  })
+
+  it('round trips settings through serialize and parse', () => {
+    const saved = entry('one', 1_000, docs({ goal: paragraphDoc('Ship it') }), {
+      kind: 'bug',
+      directives: ['plan', 'ask-first'],
+    })
+
+    expect(serializeHistory([saved])).toBe(JSON.stringify({ version: 2, entries: [saved] }))
+    expect(parseHistory(serializeHistory([saved]))).toEqual([saved])
   })
 })
 
@@ -148,21 +184,29 @@ describe('addEntry', () => {
     const duplicate = entry('third', 3_000, first.docs)
     expect(addEntry(entries, duplicate)).toBe(entries)
   })
+
+  it('treats a settings change as a new entry', () => {
+    const first = entry('first', 1_000, docs({ goal: paragraphDoc('First') }))
+    const changed = entry('second', 2_000, first.docs, { kind: 'bug', directives: ['plan'] })
+
+    expect(addEntry([first], changed).map((item) => item.id)).toEqual(['second', 'first'])
+  })
 })
 
 describe('fieldCount', () => {
-  it('counts non-empty fields from zero to four', () => {
+  it('counts non-empty fields from zero to five', () => {
     expect(fieldCount(docs())).toBe(0)
     expect(fieldCount(docs({ goal: paragraphDoc('Ship it') }))).toBe(1)
     expect(
       fieldCount(
         docs({
           goal: paragraphDoc('Ship it'),
+          details: paragraphDoc('Persists across reloads'),
           constraints: paragraphDoc('No dependencies'),
           files: paragraphDoc('src/App.tsx'),
           questions: paragraphDoc('Which icon set?'),
         }),
       ),
-    ).toBe(4)
+    ).toBe(5)
   })
 })

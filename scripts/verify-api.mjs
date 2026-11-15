@@ -82,12 +82,22 @@ function randomEmail(prefix) {
   })
   check('invalid docs are rejected', invalidDocs.status === 400, invalidDocs.data)
 
+  const invalidSettings = await request('/api/history', {
+    method: 'POST',
+    cookie: cookieA,
+    body: { docs: docs('Ship the settings page'), settings: { kind: 'task', directives: [] } },
+  })
+  check('invalid settings are rejected', invalidSettings.status === 400, invalidSettings.data)
+
+  const settings = { kind: 'bug', directives: ['plan'] }
+
   const saved = await request('/api/history', {
     method: 'POST',
     cookie: cookieA,
-    body: { docs: docs('Ship the settings page') },
+    body: { docs: docs('Ship the settings page'), settings },
   })
   check('save returns an entry', saved.status === 200 && saved.data?.entry?.docs?.goal, saved.data)
+  check('entry keeps its settings', JSON.stringify(saved.data?.entry?.settings) === JSON.stringify(settings), saved.data?.entry?.settings)
   check('first save is not a duplicate', saved.data?.duplicate === false)
   const entryId = saved.data?.entry?.id
   check('entry has an id and timestamp', typeof entryId === 'string' && typeof saved.data?.entry?.savedAt === 'number')
@@ -95,7 +105,7 @@ function randomEmail(prefix) {
   const duplicate = await request('/api/history', {
     method: 'POST',
     cookie: cookieA,
-    body: { docs: docs('Ship the settings page') },
+    body: { docs: docs('Ship the settings page'), settings },
   })
   check('second identical save reports duplicate', duplicate.data?.duplicate === true)
   check('duplicate returns the same entry', duplicate.data?.entry?.id === entryId)

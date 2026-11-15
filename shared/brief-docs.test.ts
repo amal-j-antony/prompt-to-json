@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { docsKey, historyTitle, parseFieldDocs } from './brief-docs'
+import {
+  briefKey,
+  DEFAULT_SETTINGS,
+  docsKey,
+  historyTitle,
+  parseFieldDocs,
+  parseSettings,
+} from './brief-docs'
 import type { DocNode, FieldDocs } from './brief-docs'
 
 function paragraph(text: string): DocNode {
@@ -13,6 +20,16 @@ function doc(...content: DocNode[]): DocNode {
 function validDocs(goalText: string): FieldDocs {
   return {
     goal: doc(paragraph(goalText)),
+    details: doc(paragraph('Acceptance criteria.')),
+    constraints: doc(),
+    files: doc(),
+    questions: doc(),
+  }
+}
+
+function legacyDocs(goalText: string): Record<string, unknown> {
+  return {
+    goal: doc(paragraph(goalText)),
     constraints: doc(),
     files: doc(),
     questions: doc(),
@@ -24,8 +41,20 @@ describe('parseFieldDocs', () => {
     expect(parseFieldDocs(validDocs('Ship the feature'))).not.toBeNull()
   })
 
-  it('rejects a missing field', () => {
-    const docs: Record<string, unknown> = validDocs('Ship the feature')
+  it('fills details when a legacy document set omits it', () => {
+    const parsed = parseFieldDocs(legacyDocs('Ship the feature'))
+    expect(parsed).not.toBeNull()
+    expect(parsed?.details).toEqual(doc({ type: 'paragraph' }))
+  })
+
+  it('returns a fresh details doc on each parse', () => {
+    const first = parseFieldDocs(legacyDocs('Ship the feature'))
+    const second = parseFieldDocs(legacyDocs('Ship the feature'))
+    expect(first?.details).not.toBe(second?.details)
+  })
+
+  it('rejects a missing legacy field', () => {
+    const docs = legacyDocs('Ship the feature')
     delete docs.questions
     expect(parseFieldDocs(docs)).toBeNull()
   })
@@ -75,6 +104,32 @@ describe('parseFieldDocs', () => {
   })
 })
 
+describe('parseSettings', () => {
+  it('accepts both kinds and defaults', () => {
+    expect(parseSettings(DEFAULT_SETTINGS)).toEqual({ kind: 'feature', directives: [] })
+    expect(parseSettings({ kind: 'bug', directives: ['plan', 'test-first'] })).toEqual({
+      kind: 'bug',
+      directives: ['plan', 'test-first'],
+    })
+  })
+
+  it('dedupes directives in order', () => {
+    expect(parseSettings({ kind: 'bug', directives: ['ask-first', 'plan', 'ask-first'] })).toEqual({
+      kind: 'bug',
+      directives: ['ask-first', 'plan'],
+    })
+  })
+
+  it('rejects an unknown kind, missing directives, and unknown directive ids', () => {
+    expect(parseSettings({ kind: 'task', directives: [] })).toBeNull()
+    expect(parseSettings({ kind: 'bug' })).toBeNull()
+    expect(parseSettings({ kind: 'bug', directives: ['review'] })).toBeNull()
+    expect(parseSettings({ kind: 'bug', directives: [7] })).toBeNull()
+    expect(parseSettings(null)).toBeNull()
+    expect(parseSettings('settings')).toBeNull()
+  })
+})
+
 describe('historyTitle', () => {
   it('uses the first line of the goal', () => {
     expect(historyTitle(validDocs('Ship the feature'))).toBe('Ship the feature')
@@ -99,5 +154,21 @@ describe('docsKey', () => {
 
   it('differs for different documents', () => {
     expect(docsKey(validDocs('Ship the feature'))).not.toBe(docsKey(validDocs('Ship it later')))
+  })
+})
+
+describe('briefKey', () => {
+  it('is stable for equal docs and settings', () => {
+    expect(briefKey(validDocs('Ship the feature'), DEFAULT_SETTINGS)).toBe(
+      briefKey(validDocs('Ship the feature'), DEFAULT_SETTINGS),
+    )
+  })
+
+  it('differs when only the settings differ', () => {
+    const docs = validDocs('Ship the feature')
+    expect(briefKey(docs, DEFAULT_SETTINGS)).not.toBe(briefKey(docs, { kind: 'bug', directives: [] }))
+    expect(briefKey(docs, DEFAULT_SETTINGS)).not.toBe(
+      briefKey(docs, { kind: 'feature', directives: ['plan'] }),
+    )
   })
 })
