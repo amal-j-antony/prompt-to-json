@@ -2,7 +2,7 @@ import type { JSONContent } from '@tiptap/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 import { EMPTY_DOCS, readDoc, type FieldDocs } from '../brief/docs'
-import { docToItems, docToMarkdown } from '../brief/markdown'
+import { fieldHasContent } from '../brief/markdown'
 import { FIELD_REGISTRY, type FieldId } from '../brief/registry'
 
 const DRAFT_KEY = 'prompt-studio.draft.v1'
@@ -119,11 +119,10 @@ export function useBriefDraft(): {
 
   const started = useMemo(
     () =>
-      FIELD_REGISTRY.reduce((count, spec) => {
-        const doc = docs[spec.id]
-        const text = spec.kind === 'markdown' ? docToMarkdown(doc) : docToItems(doc).join(' ')
-        return text.trim().length > 0 ? count + 1 : count
-      }, 0),
+      FIELD_REGISTRY.reduce(
+        (count, spec) => (fieldHasContent(spec.kind, docs[spec.id]) ? count + 1 : count),
+        0,
+      ),
     [docs],
   )
 

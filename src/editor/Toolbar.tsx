@@ -60,10 +60,10 @@ export function Toolbar({ editor, actions }: ToolbarProps) {
               onClick={() => {
                 action.run(editor)
               }}
-              className={`grid h-7 w-7 place-items-center rounded-lg transition-colors duration-[160ms] disabled:pointer-events-none disabled:opacity-40 ${
+              className={`action-control grid h-7 w-7 place-items-center rounded-lg active:scale-90 disabled:opacity-40 ${
                 pressed
                   ? 'bg-accent-soft text-accent'
-                  : 'text-muted hover:bg-surface-3 hover:text-ink'
+                  : 'text-muted enabled:hover:bg-surface-3 enabled:hover:text-ink'
               }`}
             >
               <Glyph aria-hidden="true" size={15} strokeWidth={1.75} />

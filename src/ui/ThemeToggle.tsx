@@ -30,8 +30,8 @@ export function ThemeToggle({ preference, onChange }: ThemeToggleProps) {
             aria-label={`${option.label} theme`}
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
-            className={`inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors duration-[160ms] ${
-              selected ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'
+            className={`action-control inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium active:scale-95 ${
+              selected ? 'bg-surface text-ink shadow-sm' : 'text-muted enabled:hover:text-ink'
             }`}
           >
             <Icon name={option.icon} size={14} />

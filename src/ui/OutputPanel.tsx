@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { Bookmark, Check, CircleAlert, Copy, Download, Info } from 'lucide-react'
 import type { Compiled } from '../brief/compile'
 import { briefJsonSchema } from '../brief/schema'
+import { Button } from './Button'
 
 type OutputTab = 'brief' | 'schema'
 
@@ -134,7 +135,7 @@ export function OutputPanel({ compiled, saving, onNotify, onSave }: OutputPanelP
             }}
             onClick={() => setTab(value)}
             onKeyDown={(event) => handleTabKeyDown(event, index)}
-            className={`-mb-px border-b-2 pb-2 pt-1 text-[12.5px] font-medium transition-colors duration-[160ms] ${
+            className={`action-control -mb-px border-b-2 pb-2 pt-1 text-[12.5px] font-medium ${
               tab === value
                 ? 'border-accent text-ink'
                 : 'border-transparent text-muted hover:text-ink'
@@ -177,41 +178,44 @@ export function OutputPanel({ compiled, saving, onNotify, onSave }: OutputPanelP
           </pre>
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="soft"
+          size="md"
           disabled={saveDisabled}
           aria-busy={saving}
-          title={actionsDisabled ? disabledReason : undefined}
+          title={saveDisabled ? disabledReason : undefined}
           onClick={onSave}
-          className="inline-flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-accent-line bg-accent-soft px-3 text-[13px] font-medium text-accent transition-colors duration-[160ms] hover:border-accent hover:bg-surface-3 disabled:pointer-events-none disabled:opacity-45"
+          className="w-full"
         >
           <Bookmark aria-hidden="true" size={15} />
           {saving ? 'Saving...' : 'Save brief'}
-        </button>
+        </Button>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="md"
             disabled={actionsDisabled}
             title={actionsDisabled ? disabledReason : undefined}
             onClick={() => {
               void handleCopy()
             }}
-            className="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] bg-accent px-3 text-[13px] font-medium text-on-accent transition-colors duration-[160ms] hover:bg-accent-hover disabled:pointer-events-none disabled:opacity-45"
+            className="flex-1"
           >
             <Copy aria-hidden="true" size={15} />
             Copy JSON
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
             disabled={actionsDisabled}
             title={actionsDisabled ? disabledReason : undefined}
             onClick={handleDownload}
-            className="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink transition-colors duration-[160ms] hover:bg-surface-3 disabled:pointer-events-none disabled:opacity-45"
+            className="flex-1"
           >
             <Download aria-hidden="true" size={15} />
             Download brief.json
-          </button>
+          </Button>
         </div>
 
         {actionsDisabled ? (

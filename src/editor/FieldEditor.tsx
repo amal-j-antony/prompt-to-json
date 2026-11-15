@@ -1,7 +1,8 @@
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
 import Placeholder from '@tiptap/extension-placeholder'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { useEffect, useRef } from 'react'
 import type { FieldSpec } from '../brief/registry'
 import { Toolbar } from './Toolbar'
 
@@ -11,13 +12,19 @@ export interface FieldEditorProps {
   onChange: (doc: JSONContent) => void
   resetToken: number
   error?: string
+  onEditorReady?: (editor: Editor) => void
 }
 
 const SHORTCUT_HINT = 'Markdown: # heading · - list · 1. list · > quote'
 
-function FieldEditorInstance({ spec, doc, onChange, error }: FieldEditorProps) {
+function FieldEditorInstance({ spec, doc, onChange, error, onEditorReady }: FieldEditorProps) {
+  const readyRef = useRef(onEditorReady)
   const hintId = `field-${spec.id}-hint`
   const errorId = `field-${spec.id}-error`
+
+  useEffect(() => {
+    readyRef.current = onEditorReady
+  }, [onEditorReady])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -48,6 +55,10 @@ function FieldEditorInstance({ spec, doc, onChange, error }: FieldEditorProps) {
       onChange(current.getJSON())
     },
   })
+
+  useEffect(() => {
+    if (editor) readyRef.current?.(editor)
+  }, [editor])
 
   return (
     <div>

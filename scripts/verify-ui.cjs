@@ -52,6 +52,13 @@ async function payloadFrom(page) {
   )
   check('light theme applies', lightApplied)
 
+  const historyButton = page.getByRole('button', { name: /History, 0 saved briefs/ })
+  const downloadButton = page.getByRole('button', { name: 'Download brief.json' })
+  const pointerCursor = await historyButton.evaluate((element) => getComputedStyle(element).cursor)
+  check('action buttons use a pointer cursor', pointerCursor === 'pointer', pointerCursor)
+  const disabledCursor = await downloadButton.evaluate((element) => getComputedStyle(element).cursor)
+  check('disabled actions use a not-allowed cursor', disabledCursor === 'not-allowed', disabledCursor)
+
   const editors = page.locator('.ProseMirror')
 
   await editors.nth(0).click()
@@ -108,6 +115,36 @@ async function payloadFrom(page) {
 
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `${SHOTS}/desktop-light.png`, fullPage: true })
+
+  const transition = await copyButton.evaluate((element) => getComputedStyle(element).transitionProperty)
+  check(
+    'actions animate color and transform',
+    transition.includes('background-color') && transition.includes('transform'),
+    transition,
+  )
+
+  await copyButton.hover()
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: `${SHOTS}/desktop-light-actions.png`, fullPage: true })
+
+  await page.getByRole('button', { name: 'Clear Goal' }).click()
+  await page.waitForTimeout(250)
+  check('per-field clear empties only the goal', (await payloadFrom(page)).goal === '')
+  check(
+    'per-field clear leaves other fields intact',
+    (await editors.nth(1).innerText()).includes('Stay client-only'),
+  )
+  const clearToast = page.getByRole('status')
+  check('clear offers an undo action', (await clearToast.innerText()).includes('Undo'))
+  await clearToast.getByRole('button', { name: 'Undo' }).click()
+  await page.waitForTimeout(250)
+  check('undo restores the cleared field', (await payloadFrom(page)).goal === payload.goal)
+
+  await page.getByRole('button', { name: 'Clear Goal' }).click()
+  await page.waitForTimeout(200)
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(250)
+  check('Ctrl+Z restores the cleared field', (await payloadFrom(page)).goal === payload.goal)
 
   await page.getByRole('button', { name: 'Save brief' }).click()
   await page.waitForTimeout(150)
@@ -250,6 +287,24 @@ async function payloadFrom(page) {
   await mobilePage.getByRole('button', { name: 'Close history' }).click()
   await mobilePage.getByRole('button', { name: 'Dark theme' }).click()
   await mobilePage.screenshot({ path: `${SHOTS}/mobile-dark.png`, fullPage: true })
+
+  const reduced = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    colorScheme: 'light',
+    reducedMotion: 'reduce',
+  })
+  const reducedPage = await reduced.newPage()
+  await reducedPage.goto(BASE_URL)
+  await reducedPage.waitForSelector('.ProseMirror')
+  const reducedDuration = await reducedPage
+    .getByRole('button', { name: /History, 0 saved briefs/ })
+    .evaluate((element) => getComputedStyle(element).transitionDuration)
+  check(
+    'reduced motion removes transitions',
+    reducedDuration.split(',').every((value) => Number.parseFloat(value) < 0.001),
+    reducedDuration,
+  )
+  await reduced.close()
 
   check('no console errors', errors.length === 0, errors.join(' | '))
 

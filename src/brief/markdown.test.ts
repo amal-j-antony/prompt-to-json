@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 import { describe, expect, it } from 'vitest'
-import { docToItems, docToMarkdown, normalizePath } from './markdown'
+import { docToItems, docToMarkdown, fieldHasContent, normalizePath } from './markdown'
 
 function text(value: string, type: 'bold' | 'italic' | 'code' | null = null): JSONContent {
   return type ? { type: 'text', text: value, marks: [{ type }] } : { type: 'text', text: value }
@@ -84,6 +84,19 @@ describe('docToItems', () => {
     }
 
     expect(docToItems(doc)).toEqual(['Intro', 'one', 'nested', 'deep', 'two', 'three'])
+  })
+})
+
+describe('fieldHasContent', () => {
+  it('counts prose and list fields only when they contain text', () => {
+    const empty: JSONContent = { type: 'doc', content: [paragraph()] }
+    const filled: JSONContent = { type: 'doc', content: [paragraph(text('Ship it'))] }
+    const list: JSONContent = { type: 'doc', content: [bulletList(item('src/App.tsx'))] }
+
+    expect(fieldHasContent('markdown', empty)).toBe(false)
+    expect(fieldHasContent('markdown', filled)).toBe(true)
+    expect(fieldHasContent('items', empty)).toBe(false)
+    expect(fieldHasContent('items', list)).toBe(true)
   })
 })
 

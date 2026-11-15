@@ -29,7 +29,7 @@ async function signUp(page, email) {
   await dialog.getByLabel('Email').fill(email)
   await dialog.getByLabel('Password').fill(PASSWORD)
   await dialog.locator('form').getByRole('button', { name: 'Create account' }).click()
-  await page.waitForTimeout(300)
+  await dialog.waitFor({ state: 'detached', timeout: 8000 })
   check('auth dialog closes after signup', (await page.getByRole('dialog').count()) === 0)
 }
 
@@ -39,7 +39,7 @@ async function signIn(page, email) {
   await dialog.getByLabel('Email').fill(email)
   await dialog.getByLabel('Password').fill(PASSWORD)
   await dialog.locator('form').getByRole('button', { name: 'Sign in' }).click()
-  await page.waitForTimeout(300)
+  await dialog.waitFor({ state: 'detached', timeout: 8000 })
   check('auth dialog closes after signin', (await page.getByRole('dialog').count()) === 0)
 }
 
@@ -82,7 +82,11 @@ async function signIn(page, email) {
   check('footer names the account as the store', (await page.getByText('Saved briefs sync to your account.').count()) >= 1)
 
   await page.getByRole('button', { name: 'Save brief' }).click()
-  await page.waitForTimeout(400)
+  await page.waitForFunction(
+    () => document.querySelector('[role="status"]')?.textContent?.includes('Saved to history'),
+    undefined,
+    { timeout: 10000 },
+  )
   check('account save reports success', (await page.getByRole('status').innerText()).includes('Saved to history'))
 
   await page.getByRole('button', { name: /History, 1 saved brief/ }).click()

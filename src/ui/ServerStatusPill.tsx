@@ -31,7 +31,7 @@ export function ServerStatusPill({ status, onCheck }: ServerStatusPillProps) {
       onClick={onCheck}
       aria-label={label}
       title={label}
-      className={`inline-flex h-8 items-center gap-1.5 rounded-[10px] border px-2.5 text-[12px] font-medium transition-colors duration-[160ms] hover:border-line-strong ${tone.button}`}
+      className={`action-control inline-flex h-8 items-center gap-1.5 rounded-[10px] border px-2.5 text-[12px] font-medium active:scale-[0.98] enabled:hover:border-line-strong ${tone.button}`}
     >
       <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
       <span className="hidden whitespace-nowrap sm:inline">{label}</span>

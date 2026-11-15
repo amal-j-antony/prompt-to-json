@@ -1,18 +1,43 @@
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { Eraser } from 'lucide-react'
+import { useCallback, useRef } from 'react'
 import type { FieldIssue } from '../brief/compile'
 import type { FieldDocs } from '../brief/docs'
-import { FIELD_REGISTRY, type FieldId } from '../brief/registry'
+import { fieldHasContent } from '../brief/markdown'
+import { FIELD_REGISTRY, type FieldId, type FieldSpec } from '../brief/registry'
 import { FieldEditor } from '../editor/FieldEditor'
+import { Button } from './Button'
 import { Icon } from './Icon'
+import type { Notify } from './Toast'
 
 interface BriefFormProps {
   docs: FieldDocs
   issues: FieldIssue[]
   resetToken: number
   onChange(id: FieldId, doc: JSONContent): void
+  onNotify: Notify
 }
 
-export function BriefForm({ docs, issues, resetToken, onChange }: BriefFormProps) {
+export function BriefForm({ docs, issues, resetToken, onChange, onNotify }: BriefFormProps) {
+  const editorsRef = useRef<Partial<Record<FieldId, Editor>>>({})
+
+  const registerEditor = useCallback((id: FieldId, editor: Editor) => {
+    editorsRef.current[id] = editor
+  }, [])
+
+  const clearField = (spec: FieldSpec) => {
+    const editor = editorsRef.current[spec.id]
+    if (!editor) return
+
+    editor.chain().focus().clearContent().run()
+    onNotify(`${spec.label} cleared.`, {
+      label: 'Undo',
+      onClick: () => {
+        if (editor.isEmpty) editor.commands.undo()
+      },
+    })
+  }
+
   return (
     <div className="space-y-4">
       {FIELD_REGISTRY.map((spec) => {
@@ -20,6 +45,7 @@ export function BriefForm({ docs, issues, resetToken, onChange }: BriefFormProps
           .filter((issue) => issue.field === spec.id)
           .map((issue) => issue.message)
           .join(' ')
+        const hasContent = fieldHasContent(spec.kind, docs[spec.id])
 
         return (
           <section key={spec.id} className="field-shell overflow-hidden">
@@ -48,9 +74,25 @@ export function BriefForm({ docs, issues, resetToken, onChange }: BriefFormProps
                   {spec.hint}
                 </p>
               </div>
-              <span className="ml-auto hidden h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-muted sm:grid">
-                <Icon name={spec.icon} size={16} />
-              </span>
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                {hasContent ? (
+                  <Button
+                    variant="icon-danger"
+                    size="icon"
+                    aria-label={`Clear ${spec.label}`}
+                    title={`Clear ${spec.label}`}
+                    onClick={() => clearField(spec)}
+                  >
+                    <Eraser aria-hidden="true" size={15} />
+                  </Button>
+                ) : null}
+                <span
+                  aria-hidden="true"
+                  className="hidden h-8 w-8 place-items-center rounded-lg border border-line bg-surface-2 text-muted sm:grid"
+                >
+                  <Icon name={spec.icon} size={16} />
+                </span>
+              </div>
             </header>
 
             <FieldEditor
@@ -58,6 +100,7 @@ export function BriefForm({ docs, issues, resetToken, onChange }: BriefFormProps
               doc={docs[spec.id]}
               resetToken={resetToken}
               error={error || undefined}
+              onEditorReady={(editor) => registerEditor(spec.id, editor)}
               onChange={(doc) => onChange(spec.id, doc)}
             />
           </section>

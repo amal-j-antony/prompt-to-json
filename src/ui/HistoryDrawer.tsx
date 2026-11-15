@@ -7,6 +7,7 @@ import {
   type HistoryEntry,
 } from '../history/entry'
 import type { HistorySource } from '../state/useHistory'
+import { Button } from './Button'
 import { useDialog } from './useDialog'
 
 interface HistoryDrawerProps {
@@ -87,23 +88,21 @@ export function HistoryDrawer({
           </div>
           <div className="ml-auto flex items-center gap-2">
             {entries.length > 0 && !loading ? (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="inline-flex h-8 items-center rounded-[10px] border border-line bg-surface px-2.5 text-[12px] font-medium text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-warn"
-              >
+              <Button variant="danger" size="sm" onClick={handleClear}>
                 Clear all
-              </button>
+              </Button>
             ) : null}
-            <button
+            <Button
               ref={closeRef}
-              type="button"
+              variant="icon"
+              size="icon"
+              data-close
               aria-label="Close history"
               onClick={onClose}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-line bg-surface text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-ink"
+              className="shrink-0"
             >
               <X aria-hidden="true" size={15} />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -113,13 +112,9 @@ export function HistoryDrawer({
               <p className="min-w-0 flex-1 text-[12px] leading-5 text-muted">
                 Sign in to sync history across devices.
               </p>
-              <button
-                type="button"
-                onClick={onSignIn}
-                className="inline-flex h-7 shrink-0 items-center rounded-lg border border-line bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors duration-[160ms] hover:bg-surface-3"
-              >
+              <Button variant="secondary" size="sm" onClick={onSignIn} className="h-7 shrink-0">
                 Sign in
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -164,21 +159,17 @@ export function HistoryDrawer({
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleLoad(entry)}
-                          className="inline-flex h-8 items-center rounded-lg border border-line bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors duration-[160ms] hover:bg-surface-3"
-                        >
+                        <Button variant="secondary" size="sm" onClick={() => handleLoad(entry)}>
                           Load
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="icon-danger"
+                          size="icon"
                           aria-label={`Delete "${title}"`}
                           onClick={() => handleDelete(entry, title)}
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-surface text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-warn"
                         >
                           <Trash2 aria-hidden="true" size={14} />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </li>

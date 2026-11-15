@@ -128,9 +128,35 @@
   :where(button, input, textarea) {
     font: inherit;
   }
+
+  :where(button, [role='button']):not(:disabled):not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  :where(button, [role='button']):disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
 }
 
 @layer components {
+  .action-control {
+    transition:
+      color 160ms ease-out,
+      background-color 160ms ease-out,
+      border-color 160ms ease-out,
+      box-shadow 160ms ease-out,
+      transform 90ms ease-out;
+  }
+
+  [data-close] svg {
+    transition: transform 160ms ease-out;
+  }
+
+  [data-close]:enabled:hover svg {
+    transform: rotate(90deg);
+  }
+
   .app-backdrop {
     background-image:
       radial-gradient(

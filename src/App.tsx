@@ -11,11 +11,12 @@ import { useTheme } from './state/useTheme'
 import { AccountMenu } from './ui/AccountMenu'
 import { AuthDialog } from './ui/AuthDialog'
 import { BriefForm } from './ui/BriefForm'
+import { Button } from './ui/Button'
 import { HistoryDrawer } from './ui/HistoryDrawer'
 import { OutputPanel } from './ui/OutputPanel'
 import { ServerStatusPill } from './ui/ServerStatusPill'
 import { ThemeToggle } from './ui/ThemeToggle'
-import { Toast } from './ui/Toast'
+import { Toast, type ToastAction } from './ui/Toast'
 
 function CompletionMeter({ started }: { started: number }) {
   return (
@@ -55,12 +56,16 @@ export default function App() {
   )
   const { preference, setPreference } = useTheme()
   const compiled = useMemo(() => compileBrief(docs), [docs])
-  const [toast, setToast] = useState<{ id: number; message: string } | null>(null)
+  const [toast, setToast] = useState<{
+    id: number
+    message: string
+    action?: ToastAction
+  } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
 
-  const notify = useCallback((message: string) => {
-    setToast({ id: Date.now(), message })
+  const notify = useCallback((message: string, action?: ToastAction) => {
+    setToast({ id: Date.now(), message, action })
   }, [])
 
   const dismissToast = useCallback(() => setToast(null), [])
@@ -150,32 +155,34 @@ export default function App() {
               onSignIn={() => setAuthOpen(true)}
               onSignOut={handleSignOut}
             />
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               aria-haspopup="dialog"
               aria-expanded={historyOpen}
               aria-label={`History, ${entries.length} saved ${
                 entries.length === 1 ? 'brief' : 'briefs'
               }`}
               onClick={() => setHistoryOpen(true)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-2.5 text-[12px] font-medium text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-ink"
+              className="gap-1.5"
             >
               <HistoryIcon aria-hidden="true" size={14} />
               <span className="hidden xl:inline">History</span>
               <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-[10.5px] font-semibold leading-4 text-muted">
                 {entries.length}
               </span>
-            </button>
+            </Button>
             <ThemeToggle preference={preference} onChange={setPreference} />
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               title="Clear the draft"
               onClick={handleReset}
-              className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-2.5 text-[12px] font-medium text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-ink"
+              className="gap-1.5"
             >
               <RotateCcw aria-hidden="true" size={14} />
               Reset
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -187,6 +194,7 @@ export default function App() {
             issues={started > 0 ? compiled.issues : []}
             resetToken={resetToken}
             onChange={setField}
+            onNotify={notify}
           />
 
           <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start">
@@ -228,7 +236,14 @@ export default function App() {
         <AuthDialog auth={auth} onClose={closeAuth} onSignedIn={handleSignedIn} />
       ) : null}
 
-      {toast ? <Toast key={toast.id} message={toast.message} onDismiss={dismissToast} /> : null}
+      {toast ? (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          action={toast.action}
+          onDismiss={dismissToast}
+        />
+      ) : null}
     </div>
   )
 }

@@ -135,6 +135,11 @@ export function docToItems(doc: DocNode): string[] {
   return items
 }
 
+export function fieldHasContent(kind: 'markdown' | 'items', doc: DocNode): boolean {
+  const text = kind === 'markdown' ? docToMarkdown(doc) : docToItems(doc).join(' ')
+  return text.trim().length > 0
+}
+
 export function normalizePath(value: string): string {
   let out = value.trim()
   out = out.replace(/^(?:[-*+]\s+|\d+[.)]\s+)/, '').trim()

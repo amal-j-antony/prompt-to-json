@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { AuthController } from '../state/useAuth'
+import { Button } from './Button'
 import { useDialog } from './useDialog'
 
 type AuthTab = 'signin' | 'signup'
@@ -71,14 +72,16 @@ export function AuthDialog({ auth, onClose, onSignedIn }: AuthDialogProps) {
               Sync saved briefs across devices.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="icon"
+            size="icon"
+            data-close
             aria-label="Close sign in"
             onClick={onClose}
-            className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-line bg-surface text-muted transition-colors duration-[160ms] hover:border-line-strong hover:text-ink"
+            className="ml-auto shrink-0"
           >
             <X aria-hidden="true" size={15} />
-          </button>
+          </Button>
         </header>
 
         <div role="tablist" aria-label="Account action" className="mt-4 flex gap-4 border-b border-line">
@@ -90,7 +93,7 @@ export function AuthDialog({ auth, onClose, onSignedIn }: AuthDialogProps) {
               aria-selected={tab === value}
               aria-controls="auth-panel"
               onClick={() => setTab(value)}
-              className={`-mb-px border-b-2 pb-2 text-[12.5px] font-medium transition-colors duration-[160ms] ${
+              className={`action-control -mb-px border-b-2 pb-2 text-[12.5px] font-medium ${
                 tab === value ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
               }`}
             >
@@ -141,13 +144,15 @@ export function AuthDialog({ auth, onClose, onSignedIn }: AuthDialogProps) {
             </p>
           ) : null}
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="md"
             disabled={auth.busy}
-            className="inline-flex h-9 w-full items-center justify-center rounded-[10px] bg-accent px-3 text-[13px] font-medium text-on-accent transition-colors duration-[160ms] hover:bg-accent-hover disabled:pointer-events-none disabled:opacity-45"
+            className="w-full"
           >
             {auth.busy ? BUSY_LABELS[tab] : TAB_LABELS[tab]}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
