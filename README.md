@@ -1,8 +1,8 @@
 # Prompt Studio
 
-Four fields in. One agent-ready brief out.
+Five fields in. One agent-ready brief out.
 
-Write a goal, constraints, file references, and open questions. Prompt Studio turns them into a validated JSON brief you can paste into a coding agent. Saved briefs live in your account, backed by MongoDB Atlas, or stay in the browser when you are signed out.
+Write an issue or a goal, the details, constraints, file references, and open questions. Prompt Studio turns them into a validated JSON brief you can paste into a coding agent. Saved briefs live in your account, backed by MongoDB Atlas, or stay in the browser when you are signed out.
 
 ![The editor in light mode](docs/screenshots/desktop-light.png)
 
@@ -12,9 +12,11 @@ Write a goal, constraints, file references, and open questions. Prompt Studio tu
 
 ## What it does
 
-- Four rich-text fields share one editor: bold, italic, inline code, bullet and numbered lists, quotes, headings, undo, and redo. Typing `- `, `1. `, `# `, or `> ` starts the matching block.
+- Five rich-text fields share one editor: bold, italic, inline code, bullet and numbered lists, quotes, headings, undo, and redo. Typing `- `, `1. `, `# `, or `> ` starts the matching block.
+- A work-type toggle switches between feature and bug. The first field becomes Issue in bug mode, and the payload key becomes `issue`.
+- Directive chips append their sentence to the payload: plan first, test first, or ask first.
 - The right panel updates on every keystroke with the JSON brief. Copy it or download `brief.json`.
-- Clear one field with the eraser in its card. The toast offers Undo, and Ctrl+Z also restores it. The header Reset clears all four fields.
+- Clear one field with the eraser in its card. The toast offers Undo, and Ctrl+Z also restores it. The header Reset clears all five fields, the work type, and the autosaved draft.
 - The JSON Schema tab shows the draft 2020-12 schema the payload is validated against. Zod generates both from one declaration.
 - Create an account to save briefs to MongoDB Atlas. History is scoped to the account and follows you to any device.
 - Signed-out use still works. Drafts and guest history stay in this browser.
@@ -42,7 +44,7 @@ npm start
 Open http://localhost:8787. Express serves the built SPA and the API from one origin.
 
 ```sh
-npm test          # 52 unit tests
+npm test          # 74 unit tests
 npm run typecheck
 npm run lint
 npm run build
@@ -102,23 +104,29 @@ The build compiles the server to CommonJS in `dist-server`, writes a matching `p
 
 ```json
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
+  "kind": "feature",
   "goal": "**Ship a settings page** with a theme toggle.",
+  "details": "Dark mode persists across reloads.",
   "constraints": "- Stay client-only\n- No new dependencies",
   "fileReferences": ["src/state/useTheme.ts", "src/App.tsx"],
   "openQuestions": [
     "Should the toggle follow the OS?",
     "Which icon set should ship?"
-  ]
+  ],
+  "directives": ["Create a plan only. Do not edit the codebase until the user approves the plan."]
 }
 ```
 
 | Field | Payload key | Shape |
 | --- | --- | --- |
-| Goal | `goal` | Markdown string, required |
+| Goal | `goal`, or `issue` in bug mode | Markdown string, required |
+| Details | `details` | Markdown string |
 | Constraints | `constraints` | Markdown string |
 | File references | `fileReferences` | String array, one path per item, deduplicated |
 | Open questions | `openQuestions` | String array, one question per item |
+
+The `kind` field makes the payload a discriminated union: `feature` requires `goal`, `bug` requires `issue`. Selected directives land as full sentences in `directives`.
 
 Prose fields keep inline formatting as Markdown. List fields flatten each top-level block and nested list item into one string. File paths lose wrapping backticks, quotes, list markers, and trailing punctuation before deduplication.
 
@@ -127,15 +135,16 @@ Prose fields keep inline formatting as Markdown. List fields flatten each top-le
 ```text
 FieldEditor.onUpdate [1] ← one TipTap instance per field
 ├── useBriefDraft.setField [1a] ← replace one snapshot entry
-│   ├── docs snapshot [1a1]
+│   ├── draft snapshot { docs, settings } [1a1]
 │   │   ├── debounce 300 ms → localStorage draft [1a1a]
-│   │   └── compileBrief(docs) [1a1b] ← memoized per snapshot
-│   │       ├── docToMarkdown(goal, constraints) [1a1b1]
+│   │   └── compileBrief(docs, settings) [1a1b] ← memoized per snapshot
+│   │       ├── docToMarkdown(goal or issue, details, constraints) [1a1b1]
 │   │       ├── docToItems(files).map(normalizePath) [1a1b2]
 │   │       ├── dedupe file paths [1a1b3]
-│   │       ├── BriefSchema.safeParse(candidate) [1a1b4] ← zod contract
-│   │       └── JSON.stringify(value, null, 2) [1a1b5]
-│   └── replace(docs) on history load [1a2] ← remounts editors
+│   │       ├── directiveTexts(settings.directives) [1a1b4]
+│   │       ├── BriefSchema.safeParse(candidate) [1a1b5] ← zod contract
+│   │       └── JSON.stringify(value, null, 2) [1a1b6]
+│   └── replace(docs, settings) on history load [1a2] ← remounts editors
 ├── OutputPanel [1b]
 │   ├── Save brief [1b1] → useHistory.save [1b1a]
 │   │   ├── signed out → localStorage [1b1a1]
@@ -180,8 +189,8 @@ The original visual layer was built without Stitch because no Stitch MCP server 
 
 ## Verification
 
-- `npm test` runs 55 unit tests across the serializer, schema, history model, password hashing, rate limiting, origin checks, and document validation.
-- `npm run verify:api` runs 30 checks against a real local mongod: signup, sessions, save, duplicate detection, two-user isolation, IDOR, delete, clear, logout, bad credentials, and origin rejection.
-- `npm run verify:ui` runs 47 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, and reduced motion.
+- `npm test` runs 74 unit tests across the serializer, schema, history model, password hashing, rate limiting, origin checks, and document validation.
+- `npm run verify:api` runs 34 checks against a real local mongod: signup, sessions, save, duplicate detection, settings validation, two-user isolation, IDOR, delete, clear, logout, bad credentials, and origin rejection.
+- `npm run verify:ui` runs 65 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, bug mode, directives, and reduced motion.
 - `npm run verify:auth` runs 25 account checks: signup, account save, sign-out, second-account isolation, history restore across reload, degraded and recovered status, retry after two simulated 503s, and screenshots.
 - Run the server first for the browser scripts.
