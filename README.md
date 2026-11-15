@@ -30,7 +30,7 @@ cp .env.example .env
 npm run dev
 ```
 
-`npm run dev` starts the Vite app on http://localhost:5173 and the API on http://localhost:8787. Vite proxies `/api` so cookies stay same-origin.
+`npm run dev` starts the Vite app on http://localhost:5173 and the API on http://localhost:8787. Vite proxies `/api` so cookies stay same-origin. The dev runner refuses to start when either port is taken, restarts the API when it stops listening for 10 seconds, and stops both processes on Ctrl+C.
 
 To run the production build locally:
 
