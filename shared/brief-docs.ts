@@ -1,6 +1,8 @@
 export type FieldId = 'goal' | 'details' | 'constraints' | 'files' | 'questions'
 export type WorkKind = 'feature' | 'bug'
-export type DirectiveId = 'plan' | 'test-first' | 'ask-first'
+
+export const DIRECTIVE_IDS = ['plan', 'test-first', 'ask-first', 'root-cause'] as const
+export type DirectiveId = (typeof DIRECTIVE_IDS)[number]
 
 export interface BriefSettings {
   kind: WorkKind
@@ -30,7 +32,6 @@ export const FIELD_IDS: readonly FieldId[] = [
   'files',
   'questions',
 ]
-export const DIRECTIVE_IDS: readonly DirectiveId[] = ['plan', 'test-first', 'ask-first']
 
 const ALLOWED_NODE_TYPES = new Set([
   'doc',

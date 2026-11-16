@@ -22,6 +22,11 @@ export const DIRECTIVE_REGISTRY: readonly DirectiveSpec[] = [
     label: 'Ask first',
     text: 'Ask about anything ambiguous in the open questions before you build.',
   },
+  {
+    id: 'root-cause',
+    label: 'Fix root cause',
+    text: 'Investigate the root cause of this issue and implement a robust fix to ensure it does not recur. Address the underlying problem rather than applying a temporary workaround. Review related code paths, identify potential edge cases, and add appropriate safeguards and regression tests. Avoid unnecessary changes to unrelated functionality.',
+  },
 ]
 
 export function directiveTexts(ids: readonly DirectiveId[]): string[] {

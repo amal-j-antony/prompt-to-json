@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   briefKey,
   DEFAULT_SETTINGS,
+  DIRECTIVE_IDS,
   docsKey,
   historyTitle,
   parseFieldDocs,
@@ -118,6 +119,15 @@ describe('parseSettings', () => {
       kind: 'bug',
       directives: ['ask-first', 'plan'],
     })
+  })
+
+  it('round-trips every directive id', () => {
+    for (const id of DIRECTIVE_IDS) {
+      expect(parseSettings({ kind: 'bug', directives: [id] })).toEqual({
+        kind: 'bug',
+        directives: [id],
+      })
+    }
   })
 
   it('rejects an unknown kind, missing directives, and unknown directive ids', () => {
