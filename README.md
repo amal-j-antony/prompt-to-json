@@ -14,7 +14,7 @@ Write an issue or a goal, the details, constraints, file references, and open qu
 
 - Five rich-text fields share one editor: bold, italic, inline code, bullet and numbered lists, quotes, headings, undo, and redo. Typing `- `, `1. `, `# `, or `> ` starts the matching block.
 - A work-type toggle switches between feature and bug. The first field becomes Issue in bug mode, and the payload key becomes `issue`.
-- Directive chips append their sentence to the payload: plan first, test first, ask first, or fix the root cause.
+- Directive chips append their sentence to the payload: plan first, test first, ask first, fix the root cause, or keep it maintainable.
 - The right panel updates on every keystroke with the JSON brief. Copy it or download `brief.json`.
 - Clear one field with the eraser in its card. The toast offers Undo, and Ctrl+Z also restores it. The header Reset clears all five fields, the work type, and the autosaved draft.
 - The JSON Schema tab shows the draft 2020-12 schema the payload is validated against. Zod generates both from one declaration.
@@ -191,6 +191,6 @@ The original visual layer was built without Stitch because no Stitch MCP server 
 
 - `npm test` runs 79 unit tests across the serializer, schema, history model, password hashing, rate limiting, origin checks, and document validation.
 - `npm run verify:api` runs 34 checks against a real local mongod: signup, sessions, save, duplicate detection, settings validation, two-user isolation, IDOR, delete, clear, logout, bad credentials, and origin rejection.
-- `npm run verify:ui` runs 67 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, bug mode, directives, and reduced motion.
+- `npm run verify:ui` runs 75 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, bug mode, directives, and reduced motion.
 - `npm run verify:auth` runs 25 account checks: signup, account save, sign-out, second-account isolation, history restore across reload, degraded and recovered status, retry after two simulated 503s, and screenshots.
 - Run the server first for the browser scripts.
