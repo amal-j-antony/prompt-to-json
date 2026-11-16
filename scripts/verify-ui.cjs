@@ -123,6 +123,21 @@ async function payloadFrom(page) {
   check('open questions split into two items', payload.openQuestions.length === 2, payload.openQuestions)
   check('directives start empty', payload.directives.length === 0, payload.directives)
 
+  const rootCauseText =
+    'Investigate the root cause of this issue and implement a robust fix to ensure it does not recur. Address the underlying problem rather than applying a temporary workaround. Review related code paths, identify potential edge cases, and add appropriate safeguards and regression tests. Avoid unnecessary changes to unrelated functionality.'
+  await page.getByRole('button', { name: 'Fix root cause' }).click()
+  await page.waitForTimeout(150)
+  const rootCausePayload = await payloadFrom(page)
+  check(
+    'root cause directive appends its sentence',
+    rootCausePayload.directives.length === 1 && rootCausePayload.directives[0] === rootCauseText,
+    rootCausePayload.directives,
+  )
+  await page.getByRole('button', { name: 'Fix root cause' }).click()
+  await page.waitForTimeout(150)
+  const rootCauseOff = await payloadFrom(page)
+  check('root cause directive toggles off', rootCauseOff.directives.length === 0, rootCauseOff.directives)
+
   check('status reads Valid', (await page.getByText('Valid', { exact: true }).count()) === 1)
   const copyButton = page.getByRole('button', { name: 'Copy JSON' })
   check('copy enabled once valid', await copyButton.isEnabled())
