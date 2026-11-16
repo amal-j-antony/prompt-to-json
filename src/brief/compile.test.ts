@@ -130,17 +130,18 @@ describe('compileBrief', () => {
     expect(result.payload.directives).toEqual([plan?.text, ask?.text])
   })
 
-  it('maps the root-cause directive to its sentence', () => {
-    const result = compileBrief(
-      docs({ goal: docWithText('Ship it.') }),
-      settings({ directives: ['root-cause'] }),
-    )
+  it('maps every directive to its sentence', () => {
+    for (const directive of DIRECTIVE_REGISTRY) {
+      const result = compileBrief(
+        docs({ goal: docWithText('Ship it.') }),
+        settings({ directives: [directive.id] }),
+      )
 
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
 
-    const rootCause = DIRECTIVE_REGISTRY.find((directive) => directive.id === 'root-cause')
-    expect(result.payload.directives).toContain(rootCause?.text)
+      expect(result.payload.directives).toEqual([directive.text])
+    }
   })
 
   it('compiles legacy four-field docs', () => {

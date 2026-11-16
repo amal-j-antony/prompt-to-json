@@ -1,7 +1,7 @@
 export type FieldId = 'goal' | 'details' | 'constraints' | 'files' | 'questions'
 export type WorkKind = 'feature' | 'bug'
 
-export const DIRECTIVE_IDS = ['plan', 'test-first', 'ask-first', 'root-cause'] as const
+export const DIRECTIVE_IDS = ['plan', 'test-first', 'ask-first', 'root-cause', 'maintainable'] as const
 export type DirectiveId = (typeof DIRECTIVE_IDS)[number]
 
 export interface BriefSettings {

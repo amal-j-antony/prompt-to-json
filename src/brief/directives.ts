@@ -27,6 +27,11 @@ export const DIRECTIVE_REGISTRY: readonly DirectiveSpec[] = [
     label: 'Fix root cause',
     text: 'Investigate the root cause of this issue and implement a robust fix to ensure it does not recur. Address the underlying problem rather than applying a temporary workaround. Review related code paths, identify potential edge cases, and add appropriate safeguards and regression tests. Avoid unnecessary changes to unrelated functionality.',
   },
+  {
+    id: 'maintainable',
+    label: 'Keep it maintainable',
+    text: 'Match the codebase before adding code. Follow its patterns, naming, and structure, and reuse existing helpers. Keep the change scoped, prefer simple, readable code, and avoid new abstractions or dependencies the request does not need. Add tests for new behavior and edge cases, and update the docs the change touches. If you spot an unrelated improvement, propose it separately instead of making it.',
+  },
 ]
 
 export function directiveTexts(ids: readonly DirectiveId[]): string[] {
