@@ -146,6 +146,20 @@ The directives card renders one chip row per group. Selected chips use the soft 
 
 `src/brief/suggestions.ts` holds `suggestionFor(field, kind)`. Unmet Brief checks render a Suggest button beside the focus button. Suggest calls `BriefFormHandle.suggestField`, which expands the field and calls `FieldControl.insert` with a starter item. The user edits the inserted text. No AI, no automatic submission.
 
+## Keyboard
+
+`src/state/useShortcuts.ts` owns the global keydown listener. Shortcuts are disabled while the command palette, shortcut help, auth dialog, or history drawer is open.
+
+- `Ctrl/Cmd+K` toggles the command palette.
+- `Ctrl/Cmd+S` saves.
+- `Ctrl/Cmd+Alt+C` copies the JSON. `Ctrl+Shift+C` is avoided because Chrome uses it for DevTools.
+- `Alt+Down` and `Alt+Up` move to the next or previous active field.
+- `?` opens the shortcut help when focus is not in an editor or input.
+
+`src/ui/CommandPalette.tsx` uses `filterCommands` from `src/lib/commands.ts` and the combobox/listbox pattern. It lists fields, presets, mode, layout, copy, save, history, and help. `src/ui/ShortcutsDialog.tsx` lists the bindings. Both use `useDialog` for focus trap, Escape, and backdrop close.
+
+`BriefFormHandle.moveField` reads the focused card's `data-field-id` and focuses the next or previous id in the active field set.
+
 ## State and persistence
 
 `src/state/useBriefDraft.ts`
@@ -228,6 +242,7 @@ History export uses `serializeHistory`, so the file is the existing `{ "version"
 - Main grid: `lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]`, gap 24px, max width 1400px, padding 24px.
 - Left: the work type card with the Start from preset row, grouped directive chips (Process and Guardrails), then a Fields row with Expand all and Collapse all, then collapsible field cards for `fieldSet(settings.kind)`. Goal or Issue starts expanded; optional fields start collapsed with a one-line summary. The Brief check opens the field it points to. Prose fields use `FieldEditor`; list fields use `ListFieldEditor`. Numbers are the field's position in the active set (01 to 08 in feature mode, 01 to 07 in bug mode).
 - Right: sticky Agent brief panel with the JSON and Schema tabs, the inline Brief check, Save, Copy, and Download.
+- Overlays: command palette and shortcut help at `z-50`, plus the existing auth dialog and history drawer. All use the shared dialog hook.
 - Footer line: "Stored in this browser. Nothing is sent anywhere." plus a link-less note that the brief is meant to be pasted into an agent.
 
 `src/ui/BriefCheck.tsx` renders `briefCheck(docs, settings)` from `src/brief/check.ts`. It sits inside the Agent brief panel above Save and Copy; the inline variant uses a top divider instead of a card shell. Five checks: goal, done-when, verification, out-of-scope, and context (details or files). Statuses are `Thin brief`, `Good start`, and `Strong brief`. Missing checks are buttons that expand and focus their field, plus a Suggest action that inserts a starter item. The panel is not a second source of truth; it derives from the docs on every render.
@@ -242,7 +257,7 @@ History export uses `serializeHistory`, so the file is the existing `{ "version"
 - Both actions are disabled with an explanation when `!compiled.ok`. Download filename is `brief.json`.
 - When the required field is empty, show a calm hint above the code: "Add a goal to export this brief." or "Describe the issue to export this brief."
 
-`src/ui/BriefForm.tsx` maps `fieldSet(settings.kind)` and renders a section per field. The card body is hidden when collapsed; the header keeps the badge, label, hint or summary, eraser, icon, and chevron, with `aria-expanded` and `aria-controls`. It exposes `focusField`, `suggestField`, and `expandAll` through a `BriefFormHandle` ref; `App` passes them to `OutputPanel` and the preset flow. `src/ui/ThemeToggle.tsx` is the segmented control. `src/ui/Icon.tsx` maps icon names to lucide components.
+`src/ui/BriefForm.tsx` maps `fieldSet(settings.kind)` and renders a section per field. The card body is hidden when collapsed; the header keeps the badge, label, hint or summary, eraser, icon, and chevron, with `aria-expanded` and `aria-controls`. It exposes `focusField`, `suggestField`, `expandAll`, `collapseAll`, and `moveField` through a `BriefFormHandle` ref; `App` passes them to `OutputPanel`, the preset flow, and the shortcut handler. `src/ui/ThemeToggle.tsx` is the segmented control. `src/ui/Icon.tsx` maps icon names to lucide components.
 
 ## Visual direction
 
@@ -290,6 +305,7 @@ Follow the structure of `docs/design-a.md` and `docs/design-b.md` where they agr
 11. The directive registry matches `DIRECTIVE_IDS` order, has unique ids/labels/texts, populates both groups, and keeps every text at or under 160 characters.
 12. `listLinesFromDoc` and `listDocFromLines` preserve line order and empty lines, flatten nested lists, and `splitPastedList` splits, trims, and dedupes.
 13. `applyPresetToDocs` fills only empty active fields, sets the preset kind and directives, and leaves the goal untouched. `suggestionFor` returns kind-specific starters for the checked fields.
+14. `filterCommands` matches labels, hints, and keywords, ignores case, returns every command for an empty query, and returns an empty list when nothing matches.
 
 ## Rules
 

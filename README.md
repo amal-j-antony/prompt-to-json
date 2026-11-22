@@ -20,6 +20,7 @@ Write a goal or an issue, the checks that prove it, what to leave alone, and the
 - Start from a preset: Small bugfix, Feature slice, Refactor, Spike, or Review. Presets set the work type and directives, and fill empty fields only. The toast offers Undo.
 - A Brief check panel grades the brief from Thin to Strong. It checks the goal, the done-when list, the verification list, the out-of-scope list, and whether details or files give the agent context. It sits in the Agent brief panel, above Save and Copy. Click a missing check to expand and focus its field, or use Suggest to insert a starter item.
 - Directive chips append their sentence to the payload. They are grouped as Process and Guardrails: plan first, read first, ask first, test first, prove it, smallest diff, no new deps, fix the root cause, and keep it maintainable.
+- Keyboard flow: `Ctrl/Cmd+K` opens the command palette, `Ctrl/Cmd+S` saves, `Ctrl/Cmd+Alt+C` copies, `Alt+Up/Down` moves between fields, and `?` lists the shortcuts.
 - The right panel updates on every keystroke with the JSON brief. Copy it or download `brief.json`.
 - Clear one field with the eraser in its card. The toast offers Undo, and Ctrl+Z also restores it. The header Reset clears all fields, the work type, and the autosaved draft.
 - The JSON Schema tab shows the draft 2020-12 schema the payload is validated against. Zod generates both from one declaration.
@@ -51,7 +52,7 @@ npm start
 Open http://localhost:8787. Express serves the built SPA and the API from one origin.
 
 ```sh
-npm test          # 119 unit tests
+npm test          # 123 unit tests
 npm run typecheck
 npm run lint
 npm run build
@@ -183,6 +184,7 @@ Prose fields keep inline formatting as Markdown. List fields flatten each top-le
 
 ```text
 PresetBar.onApply → useBriefDraft.applyPreset → applyPresetToDocs → empty fields, then resetToken remounts
+useShortcuts / CommandPalette → BriefFormHandle, useBriefDraft, useHistory
 
 FieldEditor / ListFieldEditor.onChange [1] ← one control per active field
 ├── useBriefDraft.setField [1a] ← replace one snapshot entry
@@ -225,10 +227,12 @@ src/
 ├── brief/          contract, field sets, registry, list helpers, presets, suggestions, markdown, compiler, check, tests
 ├── history/        pure entry model, merge, relative time, tests
 ├── editor/         TipTap field, compact list field, toolbar, action table
-├── state/          auth, server status, history, draft, and theme hooks
+├── state/          auth, server status, history, draft, theme, and shortcut hooks
 ├── lib/api.ts      fetch wrapper, typed routes, wake retry
+├── lib/clipboard.ts copy with textarea fallback
+├── lib/commands.ts command filtering
 ├── lib/platform.ts desktop build flag
-├── ui/             form, preset bar, brief check, output, history, auth, account, status, theme
+├── ui/             form, preset bar, brief check, command palette, shortcuts, output, history, auth, account, status, theme
 ├── App.tsx         header, grid, dialogs, toasts
 └── styles.css      design tokens and editor typography
 scripts/verify-desktop.cjs  offline desktop browser checks
@@ -248,9 +252,9 @@ The original visual layer was built without Stitch because no Stitch MCP server 
 
 ## Verification
 
-- `npm test` runs 119 unit tests across the serializer, schema, brief check, field sets, list helpers, presets, suggestions, directives, history model, password hashing, rate limiting, origin checks, and document validation.
+- `npm test` runs 123 unit tests across the serializer, schema, brief check, field sets, list helpers, presets, suggestions, directives, command filtering, history model, password hashing, rate limiting, origin checks, and document validation.
 - `npm run verify:api` runs 33 checks against a real local mongod: signup, sessions, save, duplicate detection, settings validation, two-user isolation, IDOR, delete, clear, logout, bad credentials, and origin rejection.
-- `npm run verify:ui` runs 107 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, mode-specific field sets, the brief check, its position before Copy, presets, suggestions, collapsed cards, compact list fields, directive groups, and reduced motion.
+- `npm run verify:ui` runs 115 guest checks in Chrome, including pointer and disabled cursors, per-field clear, Undo, Ctrl+Z, mode-specific field sets, the brief check, its position before Copy, presets, suggestions, collapsed cards, compact list fields, directive groups, the command palette, keyboard shortcuts, and reduced motion.
 - `npm run verify:auth` runs 25 account checks: signup, account save, sign-out, second-account isolation, history restore across reload, degraded and recovered status, retry after two simulated 503s, and screenshots.
 - `npm run verify:desktop` runs 14 offline desktop checks: no API requests, no account or server UI, local draft and history, history export and import, copy, download, and the schema tab. It starts its own preview server.
 - Run the server first for `verify:ui` and `verify:auth`. `verify:desktop` is self-contained.
