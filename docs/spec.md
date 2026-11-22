@@ -138,6 +138,14 @@ It derives each value from the docs, parses with `BriefSchema.safeParse`, and al
 
 The directives card renders one chip row per group. Selected chips use the soft variant and `aria-pressed`.
 
+## Presets and suggestions
+
+`src/brief/presets.ts` holds `PRESETS` and `applyPresetToDocs`. Five presets: Small bugfix, Feature slice, Refactor, Spike, Review. Each sets the work type and directives, and fills only empty fields in the preset kind's active field set. `applyPresetToDocs` returns the next docs, settings, and the filled field ids. `useBriefDraft.applyPreset` applies the result, increments `resetToken` so prose editors remount, and returns the previous snapshot for the toast Undo.
+
+`src/ui/PresetBar.tsx` renders the Start from row at the top of the work type card. The copy says "Fills empty fields only." Applying a preset shows a toast with Undo.
+
+`src/brief/suggestions.ts` holds `suggestionFor(field, kind)`. Unmet Brief checks render a Suggest button beside the focus button. Suggest calls `BriefFormHandle.suggestField`, which expands the field and calls `FieldControl.insert` with a starter item. The user edits the inserted text. No AI, no automatic submission.
+
 ## State and persistence
 
 `src/state/useBriefDraft.ts`
@@ -151,6 +159,7 @@ export function useBriefDraft(): {
   setKind(kind: WorkKind): void
   toggleDirective(id: DirectiveId): void
   replace(docs: FieldDocs, settings: BriefSettings): void
+  applyPreset(preset: BriefPreset): { docs: FieldDocs; settings: BriefSettings }
   reset(): void
   resetToken: number
 }
@@ -207,7 +216,7 @@ History export uses `serializeHistory`, so the file is the existing `{ "version"
 
 `src/editor/Toolbar.tsx` owns the button row and the `actions.ts` table (id, label, shortcut, icon, command).
 
-`src/editor/ListFieldEditor.tsx` renders an `items` field as a compact textarea. One item per line. Paste splits on newlines (and commas or semicolons for files), trims, drops empties, and dedupes. It stores the same `DocNode` shape as one paragraph per line, so the compiler, schema, history, and export do not change. It exposes a `FieldControl` with `focus`, `clear`, `undo`, and `isEmpty`; `FieldEditor` exposes the same interface.
+`src/editor/ListFieldEditor.tsx` renders an `items` field as a compact textarea. One item per line. Paste splits on newlines (and commas or semicolons for files), trims, drops empties, and dedupes. It stores the same `DocNode` shape as one paragraph per line, so the compiler, schema, history, and export do not change. It exposes a `FieldControl` with `focus`, `clear`, `undo`, `isEmpty`, and `insert`; `FieldEditor` exposes the same interface.
 
 `src/editor/control.ts` defines `FieldControl`. `BriefForm` stores one control per field id for the eraser toast and the Brief check focus.
 
@@ -217,23 +226,23 @@ History export uses `serializeHistory`, so the file is the existing `{ "version"
 
 - Sticky header: brand mark (rounded square, `{}` glyph, accent), name, tagline, theme segmented control (light / dark / system), reset button with confirmation via `window.confirm`.
 - Main grid: `lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]`, gap 24px, max width 1400px, padding 24px.
-- Left: the work type card with grouped directive chips (Process and Guardrails), then a Fields row with Expand all and Collapse all, then collapsible field cards for `fieldSet(settings.kind)`. Goal or Issue starts expanded; optional fields start collapsed with a one-line summary. The Brief check opens the field it points to. Prose fields use `FieldEditor`; list fields use `ListFieldEditor`. Numbers are the field's position in the active set (01 to 08 in feature mode, 01 to 07 in bug mode).
+- Left: the work type card with the Start from preset row, grouped directive chips (Process and Guardrails), then a Fields row with Expand all and Collapse all, then collapsible field cards for `fieldSet(settings.kind)`. Goal or Issue starts expanded; optional fields start collapsed with a one-line summary. The Brief check opens the field it points to. Prose fields use `FieldEditor`; list fields use `ListFieldEditor`. Numbers are the field's position in the active set (01 to 08 in feature mode, 01 to 07 in bug mode).
 - Right: sticky Agent brief panel with the JSON and Schema tabs, the inline Brief check, Save, Copy, and Download.
 - Footer line: "Stored in this browser. Nothing is sent anywhere." plus a link-less note that the brief is meant to be pasted into an agent.
 
-`src/ui/BriefCheck.tsx` renders `briefCheck(docs, settings)` from `src/brief/check.ts`. It sits inside the Agent brief panel above Save and Copy; the inline variant uses a top divider instead of a card shell. Five checks: goal, done-when, verification, out-of-scope, and context (details or files). Statuses are `Thin brief`, `Good start`, and `Strong brief`. Missing checks are buttons that expand and focus their field. The panel is not a second source of truth; it derives from the docs on every render.
+`src/ui/BriefCheck.tsx` renders `briefCheck(docs, settings)` from `src/brief/check.ts`. It sits inside the Agent brief panel above Save and Copy; the inline variant uses a top divider instead of a card shell. Five checks: goal, done-when, verification, out-of-scope, and context (details or files). Statuses are `Thin brief`, `Good start`, and `Strong brief`. Missing checks are buttons that expand and focus their field, plus a Suggest action that inserts a starter item. The panel is not a second source of truth; it derives from the docs on every render.
 
 `src/ui/OutputPanel.tsx`:
 
 - Header row: "Agent brief", status pill.
 - Tabs: "Brief JSON" and "JSON Schema" with `role="tablist"`, arrow-key roving focus, `aria-selected`, `aria-controls`.
 - Code area: `pre` with `font-mono text-[12.5px] leading-relaxed`, `bg-code`, border, rounded, scroll, `max-h-[40vh]`.
-- Inline Brief check between the code area and the actions. Missing checks expand and focus their field through the `BriefFormHandle`.
+- Inline Brief check between the code area and the actions. Missing checks expand and focus their field through the `BriefFormHandle`; Suggest inserts a starter through the same handle.
 - Actions: "Copy JSON" and "Download brief.json". Copy uses `navigator.clipboard.writeText` with a textarea fallback and shows a toast. Download builds a Blob URL and revokes it.
 - Both actions are disabled with an explanation when `!compiled.ok`. Download filename is `brief.json`.
 - When the required field is empty, show a calm hint above the code: "Add a goal to export this brief." or "Describe the issue to export this brief."
 
-`src/ui/BriefForm.tsx` maps `fieldSet(settings.kind)` and renders a section per field. The card body is hidden when collapsed; the header keeps the badge, label, hint or summary, eraser, icon, and chevron, with `aria-expanded` and `aria-controls`. It exposes `focusField` through a `BriefFormHandle` ref; `App` passes that to `OutputPanel` for the Brief check. `src/ui/ThemeToggle.tsx` is the segmented control. `src/ui/Icon.tsx` maps icon names to lucide components.
+`src/ui/BriefForm.tsx` maps `fieldSet(settings.kind)` and renders a section per field. The card body is hidden when collapsed; the header keeps the badge, label, hint or summary, eraser, icon, and chevron, with `aria-expanded` and `aria-controls`. It exposes `focusField`, `suggestField`, and `expandAll` through a `BriefFormHandle` ref; `App` passes them to `OutputPanel` and the preset flow. `src/ui/ThemeToggle.tsx` is the segmented control. `src/ui/Icon.tsx` maps icon names to lucide components.
 
 ## Visual direction
 
@@ -259,7 +268,7 @@ Follow the structure of `docs/design-a.md` and `docs/design-b.md` where they agr
 - Required field marked with `aria-required` and a visible "Required" chip.
 - Field errors use `aria-describedby` and live in an `aria-live="polite"` region.
 - Toolbar buttons expose `aria-pressed` and `aria-keyshortcuts`.
-- The Brief check panel names the missing field in each unmet check. Unmet checks are buttons that move focus to the field.
+- The Brief check panel names the missing field in each unmet check. Unmet checks expose a focus button and a Suggest button with an accessible label.
 - Tabs follow the WAI-ARIA tabs pattern.
 - Toast is `role="status"` and self-dismisses after 2.5s.
 - Visible focus ring comes from the global `:focus-visible` rule. Do not remove it.
@@ -280,6 +289,7 @@ Follow the structure of `docs/design-a.md` and `docs/design-b.md` where they agr
 10. `mergeHistory` dedupes by id and content, keeps the newest copy, sorts, and caps at 50.
 11. The directive registry matches `DIRECTIVE_IDS` order, has unique ids/labels/texts, populates both groups, and keeps every text at or under 160 characters.
 12. `listLinesFromDoc` and `listDocFromLines` preserve line order and empty lines, flatten nested lists, and `splitPastedList` splits, trims, and dedupes.
+13. `applyPresetToDocs` fills only empty active fields, sets the preset kind and directives, and leaves the goal untouched. `suggestionFor` returns kind-specific starters for the checked fields.
 
 ## Rules
 
