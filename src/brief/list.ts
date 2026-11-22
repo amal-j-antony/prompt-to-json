@@ -39,7 +39,7 @@ export function listLinesFromDoc(doc: DocNode): string[] {
   return lines.length > 0 ? lines : ['']
 }
 
-export function listDocFromLines(lines: string[]): DocNode {
+export function listDocFromLines(lines: readonly string[]): DocNode {
   const content = lines.length > 0 ? lines : ['']
 
   return {

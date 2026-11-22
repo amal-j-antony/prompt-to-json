@@ -79,6 +79,10 @@ async function payloadFrom(page) {
     )
   })
   check('brief check appears before copy', briefCheckBeforeCopy)
+  check(
+    'preset bar renders five starters',
+    (await page.getByRole('group', { name: 'Start from' }).getByRole('button').count()) === 5,
+  )
 
   const darkAtBoot = await page.evaluate(() => document.documentElement.classList.contains('dark'))
   check('system dark applied at boot', darkAtBoot)
@@ -377,11 +381,20 @@ async function payloadFrom(page) {
     (await page.evaluate(() => localStorage.getItem('prompt-studio.draft.v2'))) === null,
   )
 
-  await page.getByRole('button', { name: 'Done when has at least one check' }).click()
+  await page
+    .getByRole('button', { name: 'Done when has at least one check', exact: true })
+    .click()
   await page.waitForTimeout(150)
   check(
     'brief check opens the field it points to',
     (await page.getByRole('button', { name: 'Collapse Done when' }).count()) === 1,
+  )
+
+  await page.getByRole('button', { name: 'Suggest Done when has at least one check' }).click()
+  await page.waitForTimeout(200)
+  check(
+    'suggestion fills the done field',
+    (await payloadFrom(page)).acceptanceCriteria[0] === 'The change is visible in the UI.',
   )
 
   await page.getByRole('button', { name: 'Bug', exact: true }).click()
@@ -459,6 +472,44 @@ async function payloadFrom(page) {
   )
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `${SHOTS}/desktop-dark-bug.png`, fullPage: true })
+
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.waitForTimeout(250)
+  await page.getByRole('button', { name: 'Expand all' }).click()
+  await page.waitForTimeout(100)
+  await controlFor('verify').click()
+  await page.keyboard.type('Keep this proof')
+  await page.getByRole('button', { name: 'Small bugfix' }).click()
+  await page.waitForTimeout(250)
+  check(
+    'preset switches the work type',
+    (await page
+      .getByRole('button', { name: 'Bug', exact: true })
+      .getAttribute('aria-pressed')) === 'true',
+  )
+  check(
+    'preset fills the repro template',
+    (await controlFor('details').innerText()).includes('Steps:'),
+  )
+  check(
+    'preset keeps typed fields',
+    (await controlFor('verify').inputValue()) === 'Keep this proof',
+  )
+  check(
+    'preset fills empty list fields',
+    JSON.stringify((await payloadFrom(page)).nonGoals) ===
+      JSON.stringify(['Do not change unrelated behavior']),
+  )
+  const presetToast = page.getByRole('status')
+  await presetToast.getByRole('button', { name: 'Undo' }).click()
+  await page.waitForTimeout(250)
+  const afterPresetUndo = await payloadFrom(page)
+  check('preset undo clears the filled details', afterPresetUndo.details === '')
+  check(
+    'preset undo keeps typed fields',
+    afterPresetUndo.verification[0] === 'Keep this proof',
+  )
 
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },

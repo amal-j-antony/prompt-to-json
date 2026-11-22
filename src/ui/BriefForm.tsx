@@ -7,6 +7,7 @@ import { DIRECTIVE_GROUPS, DIRECTIVE_REGISTRY } from '../brief/directives'
 import type { FieldDocs } from '../brief/docs'
 import { fieldSummary } from '../brief/list'
 import { fieldHasContent } from '../brief/markdown'
+import type { BriefPreset } from '../brief/presets'
 import {
   fieldSet,
   fieldView,
@@ -14,11 +15,13 @@ import {
   type FieldId,
   type FieldSpec,
 } from '../brief/registry'
+import { suggestionFor } from '../brief/suggestions'
 import type { FieldControl } from '../editor/control'
 import { FieldEditor } from '../editor/FieldEditor'
 import { ListFieldEditor } from '../editor/ListFieldEditor'
 import { Button } from './Button'
 import { Icon } from './Icon'
+import { PresetBar } from './PresetBar'
 import type { Notify } from './Toast'
 
 interface BriefFormProps {
@@ -29,11 +32,14 @@ interface BriefFormProps {
   onChange(id: FieldId, doc: JSONContent): void
   onKindChange(kind: WorkKind): void
   onToggleDirective(id: DirectiveId): void
+  onApplyPreset(preset: BriefPreset): void
   onNotify: Notify
 }
 
 export interface BriefFormHandle {
   focusField(id: FieldId): void
+  suggestField(id: FieldId): void
+  expandAll(): void
 }
 
 function KindToggle({ kind, onChange }: { kind: WorkKind; onChange(kind: WorkKind): void }) {
@@ -103,7 +109,17 @@ function DirectiveChips({
 }
 
 export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function BriefForm(
-  { docs, settings, issues, resetToken, onChange, onKindChange, onToggleDirective, onNotify },
+  {
+    docs,
+    settings,
+    issues,
+    resetToken,
+    onChange,
+    onKindChange,
+    onToggleDirective,
+    onApplyPreset,
+    onNotify,
+  },
   ref,
 ) {
   const controlsRef = useRef<Partial<Record<FieldId, FieldControl>>>({})
@@ -135,7 +151,25 @@ export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function Br
     })
   }
 
-  useImperativeHandle(ref, () => ({ focusField }))
+  const suggestField = (id: FieldId) => {
+    const suggestion = suggestionFor(id, settings.kind)
+    const control = controlsRef.current[id]
+    if (!suggestion || !control) return
+
+    setExpanded((previous) => (previous[id] ? previous : { ...previous, [id]: true }))
+    window.requestAnimationFrame(() => {
+      control.insert(suggestion)
+      control.focus()
+    })
+  }
+
+  const expandAll = () => {
+    const next: Partial<Record<FieldId, boolean>> = {}
+    for (const spec of fields) next[spec.id] = true
+    setExpanded(next)
+  }
+
+  useImperativeHandle(ref, () => ({ focusField, suggestField, expandAll }))
 
   const toggleField = (id: FieldId) => {
     setExpanded((previous) => ({ ...previous, [id]: !previous[id] }))
@@ -147,15 +181,14 @@ export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function Br
       return
     }
 
-    const next: Partial<Record<FieldId, boolean>> = {}
-    for (const spec of fields) next[spec.id] = true
-    setExpanded(next)
+    expandAll()
   }
 
   return (
     <div className="min-w-0 space-y-4">
       <section className="field-shell px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <PresetBar onApply={onApplyPreset} />
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
           <p id="work-type-label" className="text-[13px] font-medium leading-5 text-ink">
             Work type
           </p>

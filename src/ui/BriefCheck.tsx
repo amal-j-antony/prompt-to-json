@@ -13,6 +13,7 @@ interface BriefCheckProps {
   docs: FieldDocs
   settings: BriefSettings
   onFocus(field: FieldId): void
+  onSuggest(field: FieldId): void
   variant?: 'card' | 'inline'
 }
 
@@ -20,6 +21,7 @@ export function BriefCheck({
   docs,
   settings,
   onFocus,
+  onSuggest,
   variant = 'card',
 }: BriefCheckProps) {
   const result = briefCheck(docs, settings)
@@ -63,14 +65,23 @@ export function BriefCheck({
               {item.label}
             </li>
           ) : (
-            <li key={item.id}>
+            <li key={item.id} className="flex min-w-0 items-start gap-1.5">
               <button
                 type="button"
                 onClick={() => onFocus(item.field)}
-                className="action-control flex w-full items-start gap-2 rounded-md text-left text-[12px] leading-5 text-muted enabled:hover:text-ink"
+                className="action-control flex min-w-0 flex-1 items-start gap-2 rounded-md text-left text-[12px] leading-5 text-muted enabled:hover:text-ink"
               >
                 <Circle aria-hidden="true" size={14} className="mt-0.5 shrink-0 text-subtle" />
                 {item.label}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSuggest(item.field)}
+                aria-label={`Suggest ${item.label}`}
+                title="Add a starter item"
+                className="action-control shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10.5px] font-medium text-muted enabled:hover:border-line-strong enabled:hover:bg-surface-3 enabled:hover:text-ink"
+              >
+                Suggest
               </button>
             </li>
           ),

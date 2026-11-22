@@ -3,4 +3,5 @@ export interface FieldControl {
   clear(): void
   undo(): void
   isEmpty(): boolean
+  insert(text: string): void
 }

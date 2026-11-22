@@ -4,6 +4,7 @@ import { FIELD_IDS } from '../shared/brief-docs'
 import { compileBrief } from './brief/compile'
 import { fieldHasContent } from './brief/markdown'
 import { fieldSpec, fieldView } from './brief/registry'
+import type { BriefPreset } from './brief/presets'
 import type { HistoryEntry } from './history/entry'
 import { IS_DESKTOP } from './lib/platform'
 import { useAuth } from './state/useAuth'
@@ -32,6 +33,7 @@ export default function App() {
     setKind,
     toggleDirective,
     replace,
+    applyPreset,
     reset,
     resetToken,
   } = useBriefDraft()
@@ -89,6 +91,18 @@ export default function App() {
       notify('Saved brief loaded.')
     },
     [notify, replace],
+  )
+
+  const handleApplyPreset = useCallback(
+    (preset: BriefPreset) => {
+      const previous = applyPreset(preset)
+      window.requestAnimationFrame(() => briefFormRef.current?.expandAll())
+      notify(`${preset.label} applied.`, {
+        label: 'Undo',
+        onClick: () => replace(previous.docs, previous.settings),
+      })
+    },
+    [applyPreset, notify, replace],
   )
 
   const handleReset = () => {
@@ -189,6 +203,7 @@ export default function App() {
             onChange={setField}
             onKindChange={setKind}
             onToggleDirective={toggleDirective}
+            onApplyPreset={handleApplyPreset}
             onNotify={notify}
           />
 
@@ -202,6 +217,7 @@ export default function App() {
               onNotify={notify}
               onSave={handleSave}
               onFocusField={(id) => briefFormRef.current?.focusField(id)}
+              onSuggestField={(id) => briefFormRef.current?.suggestField(id)}
             />
           </div>
         </div>

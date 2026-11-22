@@ -9,6 +9,7 @@ import {
   type WorkKind,
 } from '../../shared/brief-docs'
 import { EMPTY_DOCS, type FieldDocs } from '../brief/docs'
+import { applyPresetToDocs, type BriefPreset } from '../brief/presets'
 import type { FieldId } from '../brief/registry'
 
 const DRAFT_KEY = 'prompt-studio.draft.v2'
@@ -95,6 +96,7 @@ export function useBriefDraft(): {
   setKind(kind: WorkKind): void
   toggleDirective(id: DirectiveId): void
   replace(docs: FieldDocs, settings: BriefSettings): void
+  applyPreset(preset: BriefPreset): { docs: FieldDocs; settings: BriefSettings }
   reset(): void
   resetToken: number
 } {
@@ -137,6 +139,14 @@ export function useBriefDraft(): {
     setResetToken((token) => token + 1)
   }, [])
 
+  const applyPreset = useCallback((preset: BriefPreset) => {
+    const previous = draftRef.current
+    const result = applyPresetToDocs(previous.docs, preset)
+    setDraft({ docs: result.docs, settings: result.settings })
+    setResetToken((token) => token + 1)
+    return { docs: previous.docs, settings: previous.settings }
+  }, [])
+
   const reset = useCallback(() => {
     clearDraft()
     setDraft({ docs: EMPTY_DOCS, settings: DEFAULT_SETTINGS })
@@ -168,6 +178,7 @@ export function useBriefDraft(): {
     setKind,
     toggleDirective,
     replace,
+    applyPreset,
     reset,
     resetToken,
   }

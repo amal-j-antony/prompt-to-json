@@ -30,6 +30,24 @@ function editorControl(editor: Editor): FieldControl {
       editor.commands.undo()
     },
     isEmpty: () => editor.isEmpty,
+    insert: (text) => {
+      const blocks = text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+      if (blocks.length === 0) return
+
+      editor
+        .chain()
+        .focus('end')
+        .insertContent(
+          blocks.map((line) => ({
+            type: 'paragraph',
+            content: [{ type: 'text', text: line }],
+          })),
+        )
+        .run()
+    },
   }
 }
 

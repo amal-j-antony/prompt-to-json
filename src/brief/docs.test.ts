@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { docsKey, EMPTY_DOCS, readDoc, type FieldDocs } from './docs'
+import { docFromText, docsKey, EMPTY_DOCS, readDoc, type FieldDocs } from './docs'
 
 function docs(goalText: string): FieldDocs {
   return {
@@ -15,6 +15,23 @@ describe('docsKey', () => {
   it('is stable across equal documents and differs when a document changes', () => {
     expect(docsKey(docs('Ship it'))).toBe(docsKey(docs('Ship it')))
     expect(docsKey(docs('Ship it'))).not.toBe(docsKey(docs('Ship something else')))
+  })
+})
+
+describe('docFromText', () => {
+  it('turns each line into a paragraph and preserves empty lines', () => {
+    expect(docFromText('One\n\nTwo')).toEqual({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'One' }] },
+        { type: 'paragraph' },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Two' }] },
+      ],
+    })
+  })
+
+  it('turns an empty string into one empty paragraph', () => {
+    expect(docFromText('')).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] })
   })
 })
 

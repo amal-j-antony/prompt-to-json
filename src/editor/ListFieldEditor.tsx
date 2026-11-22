@@ -45,6 +45,22 @@ export function ListFieldEditor({ spec, doc, onChange, error, onReady }: ListFie
         onChangeRef.current(listDocFromLines(previous.split('\n')))
       },
       isEmpty: () => (textareaRef.current?.value ?? '').trim().length === 0,
+      insert: (text) => {
+        const current = textareaRef.current?.value ?? ''
+        const lines = current
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+
+        for (const item of text
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)) {
+          if (!lines.includes(item)) lines.push(item)
+        }
+
+        onChangeRef.current(listDocFromLines(lines))
+      },
     }),
     [],
   )

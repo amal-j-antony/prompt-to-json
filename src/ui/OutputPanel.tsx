@@ -40,6 +40,7 @@ interface OutputPanelProps {
   onNotify(message: string): void
   onSave(): void
   onFocusField(field: FieldId): void
+  onSuggestField(field: FieldId): void
 }
 
 export function OutputPanel({
@@ -51,6 +52,7 @@ export function OutputPanel({
   onNotify,
   onSave,
   onFocusField,
+  onSuggestField,
 }: OutputPanelProps) {
   const [tab, setTab] = useState<OutputTab>('brief')
   const tabRefs = useRef<Partial<Record<OutputTab, HTMLButtonElement | null>>>({})
@@ -200,6 +202,7 @@ export function OutputPanel({
           docs={docs}
           settings={settings}
           onFocus={onFocusField}
+          onSuggest={onSuggestField}
           variant="inline"
         />
 

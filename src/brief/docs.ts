@@ -14,3 +14,16 @@ export const EMPTY_DOCS: FieldDocs = {
   verify: emptyDoc(),
   questions: emptyDoc(),
 }
+
+export function docFromText(text: string): DocNode {
+  const lines = text.split('\n')
+
+  return {
+    type: 'doc',
+    content: lines.map((line) =>
+      line.length > 0
+        ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
+        : { type: 'paragraph' },
+    ),
+  }
+}
