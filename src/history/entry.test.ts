@@ -7,6 +7,7 @@ import {
   fieldCount,
   HISTORY_LIMIT,
   historyTitle,
+  mergeHistory,
   parseHistory,
   relativeTime,
   serializeHistory,
@@ -193,20 +194,69 @@ describe('addEntry', () => {
   })
 })
 
+describe('mergeHistory', () => {
+  it('keeps the newest version of an entry with the same id', () => {
+    const older = entry('same', 1_000, docs({ goal: paragraphDoc('Older') }))
+    const newer = entry('same', 2_000, docs({ goal: paragraphDoc('Newer') }))
+
+    const merged = mergeHistory([older], [newer])
+    expect(merged).toHaveLength(1)
+    expect(merged[0]?.id).toBe('same')
+    expect(merged[0]?.savedAt).toBe(2_000)
+  })
+
+  it('dedupes identical content and keeps the newest save', () => {
+    const first = entry('first', 1_000, docs({ goal: paragraphDoc('Same') }))
+    const second = entry('second', 2_000, first.docs)
+
+    const merged = mergeHistory([first], [second])
+    expect(merged).toHaveLength(1)
+    expect(merged[0]?.id).toBe('second')
+  })
+
+  it('sorts newest first and caps the result', () => {
+    const a = entry('a', 1_000, docs({ goal: paragraphDoc('A') }))
+    const b = entry('b', 2_000, docs({ goal: paragraphDoc('B') }))
+    const c = entry('c', 3_000, docs({ goal: paragraphDoc('C') }))
+
+    expect(mergeHistory([a, b], [c], 2).map((item) => item.id)).toEqual(['c', 'b'])
+  })
+
+  it('returns the existing entries when there is nothing to import', () => {
+    const existing = [entry('one', 1_000)]
+    expect(mergeHistory(existing, [])).toEqual(existing)
+  })
+})
+
 describe('fieldCount', () => {
-  it('counts non-empty fields from zero to five', () => {
+  it('counts non-empty fields in the active set', () => {
     expect(fieldCount(docs())).toBe(0)
     expect(fieldCount(docs({ goal: paragraphDoc('Ship it') }))).toBe(1)
     expect(
       fieldCount(
         docs({
           goal: paragraphDoc('Ship it'),
+          done: paragraphDoc('Dark survives a reload'),
           details: paragraphDoc('Persists across reloads'),
+          nonGoals: paragraphDoc('No theme editor'),
           constraints: paragraphDoc('No dependencies'),
           files: paragraphDoc('src/App.tsx'),
+          verify: paragraphDoc('npm test'),
           questions: paragraphDoc('Which icon set?'),
         }),
       ),
-    ).toBe(5)
+    ).toBe(8)
+  })
+
+  it('uses the bug field set and ignores feature-only constraints', () => {
+    expect(
+      fieldCount(
+        docs({
+          goal: paragraphDoc('Theme resets'),
+          constraints: paragraphDoc('No dependencies'),
+        }),
+        'bug',
+      ),
+    ).toBe(1)
   })
 })

@@ -45,8 +45,11 @@ export function compileBrief(docs: FieldDocs, settings: BriefSettings): Compiled
     kind: settings.kind,
     [keys.goal]: docToMarkdown(docs.goal).trim(),
     details: docToMarkdown(docs.details).trim(),
+    acceptanceCriteria: docToItems(docs.done),
+    nonGoals: docToItems(docs.nonGoals),
     constraints: docToMarkdown(docs.constraints).trim(),
     fileReferences: fileReferencesFrom(docs.files),
+    verification: docToItems(docs.verify),
     openQuestions: docToItems(docs.questions),
     directives: directiveTexts(settings.directives),
   }

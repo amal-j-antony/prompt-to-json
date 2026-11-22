@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UserDto } from '../../shared/api'
 import type { BriefSettings } from '../../shared/brief-docs'
+import { briefKey } from '../../shared/brief-docs'
 import type { FieldDocs } from '../brief/docs'
 import {
   addEntry,
   HISTORY_KEY,
   HISTORY_LIMIT,
+  mergeHistory,
   parseHistory,
   serializeHistory,
   type HistoryEntry,
@@ -38,6 +40,7 @@ export interface HistoryController {
   saving: boolean
   error: string | null
   save(docs: FieldDocs, settings: BriefSettings, options?: SaveOptions): Promise<SaveOutcome>
+  merge(incoming: HistoryEntry[]): { imported: number; skipped: number } | null
   remove(id: string): Promise<void>
   clear(): Promise<void>
 }
@@ -155,6 +158,35 @@ export function useHistory(user: UserDto | null, ready: boolean): HistoryControl
     [entries, user],
   )
 
+  const merge = useCallback(
+    (incoming: HistoryEntry[]) => {
+      if (user) return null
+
+      const existingKeys = new Set(
+        entries.map((entry) => briefKey(entry.docs, entry.settings)),
+      )
+      const incomingKeys = new Set<string>()
+      let imported = 0
+      for (const entry of incoming) {
+        const key = briefKey(entry.docs, entry.settings)
+        if (existingKeys.has(key) || incomingKeys.has(key)) continue
+        incomingKeys.add(key)
+        imported += 1
+      }
+
+      const merged = mergeHistory(entries, incoming)
+      if (!persistHistory(merged)) {
+        setError(HISTORY_WRITE_ERROR)
+        return null
+      }
+
+      setEntries(merged)
+      setError(null)
+      return { imported, skipped: incoming.length - imported }
+    },
+    [entries, user],
+  )
+
   const remove = useCallback(
     async (id: string) => {
       if (user) {
@@ -226,5 +258,5 @@ export function useHistory(user: UserDto | null, ready: boolean): HistoryControl
     return () => window.removeEventListener('storage', handleStorage)
   }, [])
 
-  return { entries, source, loading, saving, error, save, remove, clear }
+  return { entries, source, loading, saving, error, save, merge, remove, clear }
 }

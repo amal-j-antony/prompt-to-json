@@ -4,6 +4,8 @@ import {
   DEFAULT_SETTINGS,
   DIRECTIVE_IDS,
   docsKey,
+  FIELD_IDS,
+  FIELD_SETS,
   historyTitle,
   parseFieldDocs,
   parseSettings,
@@ -19,6 +21,19 @@ function doc(...content: DocNode[]): DocNode {
 }
 
 function validDocs(goalText: string): FieldDocs {
+  return {
+    goal: doc(paragraph(goalText)),
+    done: doc(paragraph('Choosing dark survives a reload.')),
+    details: doc(paragraph('Dark mode persists across reloads.')),
+    nonGoals: doc(paragraph('Do not add a theme editor.')),
+    constraints: doc(),
+    files: doc(),
+    verify: doc(paragraph('npm test')),
+    questions: doc(),
+  }
+}
+
+function v2Docs(goalText: string): Record<string, unknown> {
   return {
     goal: doc(paragraph(goalText)),
     details: doc(paragraph('Acceptance criteria.')),
@@ -37,21 +52,46 @@ function legacyDocs(goalText: string): Record<string, unknown> {
   }
 }
 
+describe('FIELD_SETS', () => {
+  it('uses every field in feature mode and a unique subset in bug mode', () => {
+    expect([...FIELD_SETS.feature]).toEqual([...FIELD_IDS])
+
+    const known = new Set(FIELD_IDS)
+    expect(new Set(FIELD_SETS.bug).size).toBe(FIELD_SETS.bug.length)
+    for (const id of FIELD_SETS.bug) {
+      expect(known.has(id)).toBe(true)
+    }
+  })
+})
+
 describe('parseFieldDocs', () => {
   it('accepts a complete document set', () => {
     expect(parseFieldDocs(validDocs('Ship the feature'))).not.toBeNull()
   })
 
-  it('fills details when a legacy document set omits it', () => {
+  it('fills every optional document when a legacy set omits them', () => {
     const parsed = parseFieldDocs(legacyDocs('Ship the feature'))
     expect(parsed).not.toBeNull()
-    expect(parsed?.details).toEqual(doc({ type: 'paragraph' }))
+    for (const id of ['details', 'done', 'nonGoals', 'verify'] as const) {
+      expect(parsed?.[id]).toEqual(doc({ type: 'paragraph' }))
+    }
   })
 
-  it('returns a fresh details doc on each parse', () => {
+  it('keeps details and fills the v3 documents when a v2 set omits them', () => {
+    const parsed = parseFieldDocs(v2Docs('Ship the feature'))
+    expect(parsed).not.toBeNull()
+    expect(parsed?.details).toEqual(doc(paragraph('Acceptance criteria.')))
+    for (const id of ['done', 'nonGoals', 'verify'] as const) {
+      expect(parsed?.[id]).toEqual(doc({ type: 'paragraph' }))
+    }
+  })
+
+  it('returns fresh optional docs on each parse', () => {
     const first = parseFieldDocs(legacyDocs('Ship the feature'))
     const second = parseFieldDocs(legacyDocs('Ship the feature'))
-    expect(first?.details).not.toBe(second?.details)
+    for (const id of ['details', 'done', 'nonGoals', 'verify'] as const) {
+      expect(first?.[id]).not.toBe(second?.[id])
+    }
   })
 
   it('rejects a missing legacy field', () => {

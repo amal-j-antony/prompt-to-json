@@ -8,8 +8,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const SHARED_BRIEF = {
   schemaVersion: BRIEF_SCHEMA_VERSION,
   details: 'Dark mode persists across reloads.',
+  acceptanceCriteria: ['Choosing dark survives a reload.'],
+  nonGoals: ['Do not add a theme editor.'],
   constraints: '',
   fileReferences: ['src/state/useTheme.ts'],
+  verification: ['npm test'],
   openQuestions: ['Should it follow the OS?'],
   directives: [],
 }
@@ -50,11 +53,24 @@ describe('brief schema', () => {
     expect(featureProperties.goal).toEqual({ type: 'string', minLength: 1 })
     expect(bugProperties.issue).toEqual({ type: 'string', minLength: 1 })
     expect(featureProperties.details).toEqual({ type: 'string' })
+    expect(featureProperties.acceptanceCriteria).toEqual({
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    })
+    expect(featureProperties.nonGoals).toEqual({
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    })
+    expect(featureProperties.verification).toEqual({
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    })
     expect(featureProperties.directives).toEqual({
       type: 'array',
       items: { type: 'string', minLength: 1 },
     })
     expect(feature.required).toContain('details')
+    expect(feature.required).toContain('acceptanceCriteria')
     expect(feature.required).not.toContain('issue')
     expect(bug.required).not.toContain('goal')
   })

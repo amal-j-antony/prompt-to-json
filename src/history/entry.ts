@@ -1,11 +1,12 @@
 import {
   briefKey,
   DEFAULT_SETTINGS,
-  FIELD_IDS,
+  FIELD_SETS,
   parseFieldDocs,
   parseSettings,
   type BriefSettings,
   type FieldDocs,
+  type WorkKind,
 } from '../../shared/brief-docs'
 import { docToMarkdown } from '../brief/markdown'
 
@@ -99,6 +100,27 @@ export function addEntry(
   return [entry, ...entries].slice(0, limit)
 }
 
+export function mergeHistory(
+  existing: HistoryEntry[],
+  incoming: HistoryEntry[],
+  limit = HISTORY_LIMIT,
+): HistoryEntry[] {
+  const byId = new Map<string, HistoryEntry>()
+  for (const entry of [...existing, ...incoming]) {
+    const current = byId.get(entry.id)
+    if (!current || entry.savedAt > current.savedAt) byId.set(entry.id, entry)
+  }
+
+  const byContent = new Map<string, HistoryEntry>()
+  for (const entry of byId.values()) {
+    const key = briefKey(entry.docs, entry.settings)
+    const current = byContent.get(key)
+    if (!current || entry.savedAt > current.savedAt) byContent.set(key, entry)
+  }
+
+  return [...byContent.values()].sort((a, b) => b.savedAt - a.savedAt).slice(0, limit)
+}
+
 export { historyTitle } from '../../shared/brief-docs'
 
 export function relativeTime(savedAt: number, now = Date.now()): string {
@@ -119,6 +141,6 @@ export function relativeTime(savedAt: number, now = Date.now()): string {
   return `${MONTHS[date.getMonth()]} ${date.getDate()}`
 }
 
-export function fieldCount(docs: FieldDocs): number {
-  return FIELD_IDS.filter((id) => docToMarkdown(docs[id]).trim().length > 0).length
+export function fieldCount(docs: FieldDocs, kind: WorkKind = 'feature'): number {
+  return FIELD_SETS[kind].filter((id) => docToMarkdown(docs[id]).trim().length > 0).length
 }

@@ -1,4 +1,5 @@
 import type { FieldId, WorkKind } from '../../shared/brief-docs'
+import { FIELD_SETS } from '../../shared/brief-docs'
 import type { ToolbarActionId } from '../editor/actions'
 
 export type { FieldId, WorkKind }
@@ -6,9 +7,12 @@ export type { FieldId, WorkKind }
 export type PayloadKind = 'markdown' | 'items'
 export type IconName =
   | 'target'
+  | 'check'
   | 'note'
+  | 'slash'
   | 'lock'
   | 'file'
+  | 'flask'
   | 'help'
   | 'sun'
   | 'moon'
@@ -23,7 +27,6 @@ export interface FieldSpec {
   kind: PayloadKind
   required: boolean
   toolbar: readonly ToolbarActionId[]
-  badge: string
   bugLabel?: string
   bugHint?: string
   bugPlaceholder?: string
@@ -32,16 +35,22 @@ export interface FieldSpec {
 export const PAYLOAD_KEY: Record<WorkKind, Record<FieldId, string>> = {
   feature: {
     goal: 'goal',
+    done: 'acceptanceCriteria',
     details: 'details',
+    nonGoals: 'nonGoals',
     constraints: 'constraints',
     files: 'fileReferences',
+    verify: 'verification',
     questions: 'openQuestions',
   },
   bug: {
     goal: 'issue',
+    done: 'acceptanceCriteria',
     details: 'details',
+    nonGoals: 'nonGoals',
     constraints: 'constraints',
     files: 'fileReferences',
+    verify: 'verification',
     questions: 'openQuestions',
   },
 }
@@ -83,23 +92,48 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'markdown',
     required: true,
     toolbar: FULL_TOOLBAR,
-    badge: '01',
     bugLabel: 'Issue',
     bugHint: 'What is broken, and how it shows up.',
     bugPlaceholder: 'Theme resets to light after every reload.',
   },
   {
+    id: 'done',
+    label: 'Done when',
+    hint: 'Testable checks that prove the work is complete.',
+    placeholder: 'Choosing dark survives a reload.',
+    icon: 'check',
+    kind: 'items',
+    required: false,
+    toolbar: FULL_TOOLBAR,
+    bugLabel: 'Fixed when',
+    bugHint: 'The observable behavior that proves the bug is fixed.',
+    bugPlaceholder: 'Dark mode survives a reload after the fix.',
+  },
+  {
     id: 'details',
     label: 'Details',
-    hint: 'Acceptance criteria, non-goals, and the edge cases that matter.',
+    hint: 'Context, acceptance notes, and the edge cases that matter.',
     placeholder: 'Dark mode persists across reloads. Signed-out users keep the OS default.',
     icon: 'note',
     kind: 'markdown',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '02',
-    bugHint: 'Steps to reproduce, expected versus actual, and anything the repo cannot show.',
+    bugLabel: 'Repro and context',
+    bugHint: 'Repro steps, expected versus actual, environment, and logs.',
     bugPlaceholder: 'Steps: set dark, reload. Expected dark. Actual light. Chrome 138.',
+  },
+  {
+    id: 'nonGoals',
+    label: 'Out of scope',
+    hint: 'What the agent must not build, change, or refactor.',
+    placeholder: 'Do not add a theme editor.',
+    icon: 'slash',
+    kind: 'items',
+    required: false,
+    toolbar: FULL_TOOLBAR,
+    bugLabel: 'Do not change',
+    bugHint: 'Behavior, files, or formats the fix must leave alone.',
+    bugPlaceholder: 'Do not change the auth flow.',
   },
   {
     id: 'constraints',
@@ -110,7 +144,6 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'markdown',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '03',
   },
   {
     id: 'files',
@@ -121,7 +154,21 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'items',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '04',
+    bugLabel: 'Suspect files',
+    bugHint: 'Files to inspect first. One path per line or bullet.',
+  },
+  {
+    id: 'verify',
+    label: 'How to verify',
+    hint: 'Commands or manual checks that prove it works.',
+    placeholder: 'npm test',
+    icon: 'flask',
+    kind: 'items',
+    required: false,
+    toolbar: FULL_TOOLBAR,
+    bugLabel: 'How to confirm',
+    bugHint: 'Commands or steps that reproduce the bug and prove the fix.',
+    bugPlaceholder: 'npm run verify:ui',
   },
   {
     id: 'questions',
@@ -132,6 +179,19 @@ export const FIELD_REGISTRY: readonly FieldSpec[] = [
     kind: 'items',
     required: false,
     toolbar: FULL_TOOLBAR,
-    badge: '05',
   },
 ]
+
+const FIELD_BY_ID = new Map<FieldId, FieldSpec>(
+  FIELD_REGISTRY.map((spec) => [spec.id, spec] as const),
+)
+
+export function fieldSpec(id: FieldId): FieldSpec {
+  const spec = FIELD_BY_ID.get(id)
+  if (!spec) throw new Error(`Unknown field: ${id}`)
+  return spec
+}
+
+export function fieldSet(kind: WorkKind): readonly FieldSpec[] {
+  return FIELD_SETS[kind].map((id) => fieldSpec(id))
+}

@@ -6,8 +6,11 @@ export { docsKey, emptyDoc, readDoc } from '../../shared/brief-docs'
 
 export const EMPTY_DOCS: FieldDocs = {
   goal: emptyDoc(),
+  done: emptyDoc(),
   details: emptyDoc(),
+  nonGoals: emptyDoc(),
   constraints: emptyDoc(),
   files: emptyDoc(),
+  verify: emptyDoc(),
   questions: emptyDoc(),
 }

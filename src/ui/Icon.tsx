@@ -1,6 +1,9 @@
 import {
+  CircleCheck,
   CircleHelp,
+  CircleSlash,
   FileCode2,
+  FlaskConical,
   Lock,
   Monitor,
   Moon,
@@ -13,9 +16,12 @@ import type { IconName } from '../brief/registry'
 
 const ICONS: Record<IconName, LucideIcon> = {
   target: Target,
+  check: CircleCheck,
   note: NotebookText,
+  slash: CircleSlash,
   lock: Lock,
   file: FileCode2,
+  flask: FlaskConical,
   help: CircleHelp,
   sun: Sun,
   moon: Moon,

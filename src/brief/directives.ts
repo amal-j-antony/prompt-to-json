@@ -1,36 +1,75 @@
 import type { DirectiveId } from '../../shared/brief-docs'
 
+export type DirectiveGroup = 'process' | 'guardrails'
+
 export interface DirectiveSpec {
   id: DirectiveId
+  group: DirectiveGroup
   label: string
   text: string
 }
 
+export const DIRECTIVE_GROUPS: readonly { id: DirectiveGroup; label: string }[] = [
+  { id: 'process', label: 'Process' },
+  { id: 'guardrails', label: 'Guardrails' },
+]
+
+export const MAX_DIRECTIVE_LENGTH = 160
+
 export const DIRECTIVE_REGISTRY: readonly DirectiveSpec[] = [
   {
     id: 'plan',
+    group: 'process',
     label: 'Plan first',
     text: 'Create a plan only. Do not edit the codebase until the user approves the plan.',
   },
   {
-    id: 'test-first',
-    label: 'Test first',
-    text: 'Write a failing test for the current behavior first, then make it pass, then re-run it.',
+    id: 'read-first',
+    group: 'process',
+    label: 'Read first',
+    text: 'Read the files and patterns this change touches before editing. Match the conventions you find.',
   },
   {
     id: 'ask-first',
+    group: 'process',
     label: 'Ask first',
     text: 'Ask about anything ambiguous in the open questions before you build.',
   },
   {
+    id: 'test-first',
+    group: 'process',
+    label: 'Test first',
+    text: 'Write a failing test for the current behavior first, then make it pass, then re-run it.',
+  },
+  {
+    id: 'prove-it',
+    group: 'process',
+    label: 'Prove it',
+    text: 'Run the build, tests, and verification steps. Report the exact commands and results, and say what you could not verify.',
+  },
+  {
+    id: 'smallest-diff',
+    group: 'guardrails',
+    label: 'Smallest diff',
+    text: 'Make the smallest change that satisfies the brief. Do not refactor, rename, or reformat unrelated code.',
+  },
+  {
+    id: 'no-new-deps',
+    group: 'guardrails',
+    label: 'No new deps',
+    text: 'Do not add dependencies, tools, or services unless the brief asks for them.',
+  },
+  {
     id: 'root-cause',
+    group: 'guardrails',
     label: 'Fix root cause',
-    text: 'Investigate the root cause of this issue and implement a robust fix to ensure it does not recur. Address the underlying problem rather than applying a temporary workaround. Review related code paths, identify potential edge cases, and add appropriate safeguards and regression tests. Avoid unnecessary changes to unrelated functionality.',
+    text: 'Find and fix the root cause, not the symptom. Add a regression test and check related paths.',
   },
   {
     id: 'maintainable',
+    group: 'guardrails',
     label: 'Keep it maintainable',
-    text: 'Match the codebase before adding code. Follow its patterns, naming, and structure, and reuse existing helpers. Keep the change scoped, prefer simple, readable code, and avoid new abstractions or dependencies the request does not need. Add tests for new behavior and edge cases, and update the docs the change touches. If you spot an unrelated improvement, propose it separately instead of making it.',
+    text: 'Match existing patterns and stay in scope. Prefer simple code, reuse helpers, and avoid new abstractions or dependencies.',
   },
 ]
 

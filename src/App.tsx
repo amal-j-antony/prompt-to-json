@@ -1,8 +1,11 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { History as HistoryIcon, RotateCcw } from 'lucide-react'
+import { FIELD_IDS } from '../shared/brief-docs'
 import { compileBrief } from './brief/compile'
-import { FIELD_REGISTRY, fieldView } from './brief/registry'
+import { fieldHasContent } from './brief/markdown'
+import { fieldSpec, fieldView } from './brief/registry'
 import type { HistoryEntry } from './history/entry'
+import { IS_DESKTOP } from './lib/platform'
 import { useAuth } from './state/useAuth'
 import { useBriefDraft } from './state/useBriefDraft'
 import { HISTORY_WRITE_ERROR, useHistory } from './state/useHistory'
@@ -10,40 +13,13 @@ import { useServerStatus } from './state/useServerStatus'
 import { useTheme } from './state/useTheme'
 import { AccountMenu } from './ui/AccountMenu'
 import { AuthDialog } from './ui/AuthDialog'
-import { BriefForm } from './ui/BriefForm'
+import { BriefForm, type BriefFormHandle } from './ui/BriefForm'
 import { Button } from './ui/Button'
 import { HistoryDrawer } from './ui/HistoryDrawer'
 import { OutputPanel } from './ui/OutputPanel'
 import { ServerStatusPill } from './ui/ServerStatusPill'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { Toast, type ToastAction } from './ui/Toast'
-
-function CompletionMeter({ started }: { started: number }) {
-  return (
-    <div
-      role="meter"
-      aria-valuemin={0}
-      aria-valuemax={FIELD_REGISTRY.length}
-      aria-valuenow={started}
-      aria-label="Fields started"
-      className="flex items-center gap-2 rounded-[10px] border border-line bg-surface px-2.5 py-1.5"
-    >
-      <span aria-hidden="true" className="flex items-center gap-1">
-        {FIELD_REGISTRY.map((spec, index) => (
-          <span
-            key={spec.id}
-            className={`h-1.5 w-4 rounded-full transition-colors duration-[160ms] ${
-              index < started ? 'bg-accent' : 'bg-surface-3'
-            }`}
-          />
-        ))}
-      </span>
-      <span className="whitespace-nowrap text-[11.5px] font-medium text-muted">
-        {started} of {FIELD_REGISTRY.length} started
-      </span>
-    </div>
-  )
-}
 
 export default function App() {
   const auth = useAuth()
@@ -58,14 +34,17 @@ export default function App() {
     replace,
     reset,
     resetToken,
-    started,
   } = useBriefDraft()
-  const { entries, source, loading, saving, save, remove, clear, error } = useHistory(
+  const { entries, source, loading, saving, save, merge, remove, clear, error } = useHistory(
     user,
     authStatus === 'ready',
   )
   const { preference, setPreference } = useTheme()
   const compiled = useMemo(() => compileBrief(docs, settings), [docs, settings])
+  const hasStarted = useMemo(
+    () => FIELD_IDS.some((id) => fieldHasContent(fieldSpec(id).kind, docs[id])),
+    [docs],
+  )
   const [toast, setToast] = useState<{
     id: number
     message: string
@@ -73,6 +52,7 @@ export default function App() {
   } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
+  const briefFormRef = useRef<BriefFormHandle>(null)
 
   const notify = useCallback((message: string, action?: ToastAction) => {
     setToast({ id: Date.now(), message, action })
@@ -112,7 +92,7 @@ export default function App() {
   )
 
   const handleReset = () => {
-    if (!window.confirm('Clear all five fields, the work type, and the autosaved draft?')) return
+    if (!window.confirm('Clear all fields, the work type, and the autosaved draft?')) return
     reset()
     notify('Draft cleared.')
   }
@@ -148,23 +128,24 @@ export default function App() {
                 Prompt Studio
               </h1>
               <p className="hidden text-[12px] leading-4 text-muted sm:block">
-                Five fields in. One agent-ready brief out.
+                The right fields in. One agent-ready brief out.
               </p>
             </div>
           </div>
 
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            <div className="hidden lg:block">
-              <CompletionMeter started={started} />
-            </div>
-            <ServerStatusPill status={serverStatus} onCheck={check} />
-            <AccountMenu
-              key={user?.id ?? 'guest'}
-              user={user}
-              busy={authBusy}
-              onSignIn={() => setAuthOpen(true)}
-              onSignOut={handleSignOut}
-            />
+            {IS_DESKTOP ? null : (
+              <>
+                <ServerStatusPill status={serverStatus} onCheck={check} />
+                <AccountMenu
+                  key={user?.id ?? 'guest'}
+                  user={user}
+                  busy={authBusy}
+                  onSignIn={() => setAuthOpen(true)}
+                  onSignOut={handleSignOut}
+                />
+              </>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -200,9 +181,10 @@ export default function App() {
       <main className="mx-auto w-full max-w-[1400px] px-6 py-6">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <BriefForm
+            ref={briefFormRef}
             docs={docs}
             settings={settings}
-            issues={started > 0 ? compiled.issues : []}
+            issues={hasStarted ? compiled.issues : []}
             resetToken={resetToken}
             onChange={setField}
             onKindChange={setKind}
@@ -210,22 +192,27 @@ export default function App() {
             onNotify={notify}
           />
 
-          <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start">
+          <div className="min-w-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start">
             <OutputPanel
               compiled={compiled}
-              primaryLabel={fieldView(FIELD_REGISTRY[0], settings.kind).label}
+              docs={docs}
+              settings={settings}
+              primaryLabel={fieldView(fieldSpec('goal'), settings.kind).label}
               saving={saving}
               onNotify={notify}
               onSave={handleSave}
+              onFocusField={(id) => briefFormRef.current?.focusField(id)}
             />
           </div>
         </div>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line pt-4 text-[11.5px] leading-5 text-subtle">
           <p>
-            {user
-              ? 'Saved briefs sync to your account. The draft stays in this browser.'
-              : 'Stored in this browser. Nothing is sent anywhere.'}
+            {IS_DESKTOP
+              ? 'Stored on this device. Nothing is sent anywhere.'
+              : user
+                ? 'Saved briefs sync to your account. The draft stays in this browser.'
+                : 'Stored in this browser. Nothing is sent anywhere.'}
           </p>
           <p>Paste the JSON into your coding agent.</p>
         </footer>
@@ -238,15 +225,17 @@ export default function App() {
           loading={loading}
           error={error}
           signedIn={user !== null}
+          canSignIn={!IS_DESKTOP}
           onSignIn={handleHistorySignIn}
           onClose={closeHistory}
           onLoad={handleLoad}
           onDelete={remove}
           onClear={clear}
+          onImport={merge}
         />
       ) : null}
 
-      {authOpen ? (
+      {!IS_DESKTOP && authOpen ? (
         <AuthDialog auth={auth} onClose={closeAuth} onSignedIn={handleSignedIn} />
       ) : null}
 

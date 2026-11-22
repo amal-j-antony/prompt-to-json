@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DIRECTIVE_IDS } from '../../shared/brief-docs'
-import { DIRECTIVE_REGISTRY } from './directives'
+import { DIRECTIVE_GROUPS, DIRECTIVE_REGISTRY, MAX_DIRECTIVE_LENGTH } from './directives'
 
 describe('DIRECTIVE_REGISTRY', () => {
   it('lists directives in DIRECTIVE_IDS order', () => {
@@ -20,6 +20,22 @@ describe('DIRECTIVE_REGISTRY', () => {
     for (const directive of DIRECTIVE_REGISTRY) {
       expect(directive.label.trim()).not.toBe('')
       expect(directive.text.trim()).not.toBe('')
+    }
+  })
+
+  it('groups every directive and keeps both groups populated', () => {
+    const groupIds = new Set(DIRECTIVE_GROUPS.map((group) => group.id))
+    for (const directive of DIRECTIVE_REGISTRY) {
+      expect(groupIds.has(directive.group)).toBe(true)
+    }
+    for (const group of DIRECTIVE_GROUPS) {
+      expect(DIRECTIVE_REGISTRY.some((directive) => directive.group === group.id)).toBe(true)
+    }
+  })
+
+  it('keeps every directive within the scannable length limit', () => {
+    for (const directive of DIRECTIVE_REGISTRY) {
+      expect(directive.text.length).toBeLessThanOrEqual(MAX_DIRECTIVE_LENGTH)
     }
   })
 })

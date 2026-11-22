@@ -1,7 +1,25 @@
-export type FieldId = 'goal' | 'details' | 'constraints' | 'files' | 'questions'
+export type FieldId =
+  | 'goal'
+  | 'done'
+  | 'details'
+  | 'nonGoals'
+  | 'constraints'
+  | 'files'
+  | 'verify'
+  | 'questions'
 export type WorkKind = 'feature' | 'bug'
 
-export const DIRECTIVE_IDS = ['plan', 'test-first', 'ask-first', 'root-cause', 'maintainable'] as const
+export const DIRECTIVE_IDS = [
+  'plan',
+  'read-first',
+  'ask-first',
+  'test-first',
+  'prove-it',
+  'smallest-diff',
+  'no-new-deps',
+  'root-cause',
+  'maintainable',
+] as const
 export type DirectiveId = (typeof DIRECTIVE_IDS)[number]
 
 export interface BriefSettings {
@@ -27,11 +45,21 @@ export type FieldDocs = Record<FieldId, DocNode>
 export const DEFAULT_SETTINGS: BriefSettings = { kind: 'feature', directives: [] }
 export const FIELD_IDS: readonly FieldId[] = [
   'goal',
+  'done',
   'details',
+  'nonGoals',
   'constraints',
   'files',
+  'verify',
   'questions',
 ]
+
+export const FIELD_SETS: Record<WorkKind, readonly FieldId[]> = {
+  feature: FIELD_IDS,
+  bug: ['goal', 'details', 'done', 'nonGoals', 'files', 'verify', 'questions'],
+}
+
+const OPTIONAL_FIELD_IDS = new Set<FieldId>(['details', 'done', 'nonGoals', 'verify'])
 
 const ALLOWED_NODE_TYPES = new Set([
   'doc',
@@ -114,7 +142,7 @@ export function parseFieldDocs(value: unknown): FieldDocs | null {
       docs[id] = doc
       continue
     }
-    if (id === 'details') {
+    if (OPTIONAL_FIELD_IDS.has(id)) {
       docs[id] = emptyDoc()
       continue
     }

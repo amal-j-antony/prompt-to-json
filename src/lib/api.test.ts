@@ -8,9 +8,12 @@ function docs(goalText: string): FieldDocs {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: goalText }] }],
     },
+    done: { type: 'doc', content: [{ type: 'paragraph' }] },
     details: { type: 'doc', content: [{ type: 'paragraph' }] },
+    nonGoals: { type: 'doc', content: [{ type: 'paragraph' }] },
     constraints: { type: 'doc', content: [{ type: 'paragraph' }] },
     files: { type: 'doc', content: [{ type: 'paragraph' }] },
+    verify: { type: 'doc', content: [{ type: 'paragraph' }] },
     questions: { type: 'doc', content: [{ type: 'paragraph' }] },
   }
 }

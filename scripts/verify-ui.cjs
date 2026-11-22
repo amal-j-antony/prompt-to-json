@@ -28,6 +28,10 @@ async function payloadFrom(page) {
     acceptDownloads: true,
   })
   const page = await context.newPage()
+  const controlFor = (id) =>
+    page
+      .locator('section.field-shell', { has: page.locator(`#field-${id}-label`) })
+      .locator('.ProseMirror, textarea')
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text())
   })
@@ -35,15 +39,46 @@ async function payloadFrom(page) {
 
   await page.goto(BASE_URL)
   await page.waitForSelector('.ProseMirror')
-  check('five editors render', (await page.locator('.ProseMirror').count()) === 5)
   check(
-    'five field badges render',
-    (await page.locator('section.field-shell header > span.font-mono').count()) === 5,
+    'eight fields render',
+    (await page.locator('section.field-shell header > span.font-mono').count()) === 8,
   )
+  check('three rich editors render', (await page.locator('.ProseMirror').count()) === 3)
+  check('five list editors render', (await page.locator('textarea').count()) === 5)
+  check('brief check starts thin', (await page.getByText('Thin brief').count()) === 1)
   check(
     'no required error before the user types',
     (await page.getByText('Add a goal before exporting.').count()) === 0,
   )
+  check(
+    'goal starts expanded',
+    (await page.getByRole('button', { name: 'Collapse Goal' }).count()) === 1,
+  )
+  check(
+    'optional fields start collapsed',
+    (await page.getByRole('button', { name: 'Expand Done when' }).count()) === 1,
+  )
+  await page.getByRole('button', { name: 'Expand all' }).click()
+  await page.waitForTimeout(100)
+  check(
+    'expand all opens the optional fields',
+    (await page.getByRole('button', { name: 'Collapse Done when' }).count()) === 1,
+  )
+  const briefCheckInOutput = await page
+    .locator('section[aria-labelledby="brief-check-label"]')
+    .evaluate((element) => Boolean(element.closest('section.field-shell')))
+  check('brief check sits in the agent brief panel', briefCheckInOutput)
+  const briefCheckBeforeCopy = await page.evaluate(() => {
+    const briefCheck = document.querySelector('section[aria-labelledby="brief-check-label"]')
+    const copy = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Copy JSON'),
+    )
+    if (!briefCheck || !copy) return false
+    return Boolean(
+      briefCheck.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
+  check('brief check appears before copy', briefCheckBeforeCopy)
 
   const darkAtBoot = await page.evaluate(() => document.documentElement.classList.contains('dark'))
   check('system dark applied at boot', darkAtBoot)
@@ -63,9 +98,7 @@ async function payloadFrom(page) {
   const disabledCursor = await downloadButton.evaluate((element) => getComputedStyle(element).cursor)
   check('disabled actions use a not-allowed cursor', disabledCursor === 'not-allowed', disabledCursor)
 
-  const editors = page.locator('.ProseMirror')
-
-  await editors.nth(0).click()
+  await controlFor('goal').click()
   const goalSection = page.locator('section.field-shell', { has: page.locator('#field-goal-label') })
   const boldButton = goalSection.getByRole('button', { name: /Bold \(/ })
   await boldButton.click()
@@ -73,34 +106,43 @@ async function payloadFrom(page) {
   await boldButton.click()
   await page.keyboard.type(' with a theme toggle.')
 
-  await editors.nth(1).click()
+  await controlFor('done').click()
+  await page.keyboard.type('Choosing dark survives a reload')
+
+  await controlFor('details').click()
   await page.keyboard.type('Dark mode persists across reloads.')
 
-  await editors.nth(2).click()
+  await controlFor('nonGoals').click()
+  await page.keyboard.type('Do not add a theme editor')
+
+  await controlFor('constraints').click()
   await page.keyboard.type('- Stay client-only')
   await page.keyboard.press('Enter')
   await page.keyboard.type('No new dependencies')
   await page.keyboard.press('Enter')
   await page.keyboard.press('Enter')
 
-  await editors.nth(3).click()
-  await page.keyboard.type('- src/state/useTheme.ts')
+  await controlFor('files').click()
+  await page.keyboard.type('src/state/useTheme.ts')
   await page.keyboard.press('Enter')
   await page.keyboard.type('src/App.tsx')
   await page.keyboard.press('Enter')
   await page.keyboard.type('`src/state/useTheme.ts`')
-  await page.keyboard.press('Enter')
-  await page.keyboard.press('Enter')
 
-  await editors.nth(4).click()
-  await page.keyboard.type('- Should the toggle follow the OS?')
+  await controlFor('verify').click()
+  await page.keyboard.type('npm test')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('npm run verify:ui')
+
+  await controlFor('questions').click()
+  await page.keyboard.type('Should the toggle follow the OS?')
   await page.keyboard.press('Enter')
   await page.keyboard.type('Which icon set should ship?')
 
   await page.waitForTimeout(500)
 
   const payload = await payloadFrom(page)
-  check('schemaVersion is 2.0', payload.schemaVersion === '2.0', payload.schemaVersion)
+  check('schemaVersion is 3.0', payload.schemaVersion === '3.0', payload.schemaVersion)
   check('kind is a feature', payload.kind === 'feature', payload.kind)
   check('goal keeps bold markdown', payload.goal.startsWith('**Ship a settings page**'), payload.goal)
   check(
@@ -108,6 +150,25 @@ async function payloadFrom(page) {
     payload.details === 'Dark mode persists across reloads.',
     payload.details,
   )
+  check(
+    'acceptance criteria keep their items',
+    JSON.stringify(payload.acceptanceCriteria) === JSON.stringify(['Choosing dark survives a reload']),
+    payload.acceptanceCriteria,
+  )
+  check(
+    'non-goals keep their items',
+    JSON.stringify(payload.nonGoals) === JSON.stringify(['Do not add a theme editor']),
+    payload.nonGoals,
+  )
+  check(
+    'verification keeps its commands',
+    JSON.stringify(payload.verification) === JSON.stringify(['npm test', 'npm run verify:ui']),
+    payload.verification,
+  )
+  const briefCheckText = await page
+    .locator('section[aria-labelledby="brief-check-label"]')
+    .innerText()
+  check('brief check reads strong', briefCheckText.includes('Strong brief'), briefCheckText)
   check(
     'constraints keep bullet markdown',
     payload.constraints.includes('- Stay client-only') &&
@@ -167,7 +228,7 @@ async function payloadFrom(page) {
   check('per-field clear empties only the goal', (await payloadFrom(page)).goal === '')
   check(
     'per-field clear leaves other fields intact',
-    (await editors.nth(2).innerText()).includes('Stay client-only'),
+    (await controlFor('constraints').innerText()).includes('Stay client-only'),
   )
   const clearToast = page.getByRole('status')
   check('clear offers an undo action', (await clearToast.innerText()).includes('Undo'))
@@ -180,6 +241,20 @@ async function payloadFrom(page) {
   await page.keyboard.press('Control+z')
   await page.waitForTimeout(250)
   check('Ctrl+Z restores the cleared field', (await payloadFrom(page)).goal === payload.goal)
+
+  await page.getByRole('button', { name: 'Clear Done when' }).click()
+  await page.waitForTimeout(200)
+  check(
+    'list clear empties the done field',
+    (await payloadFrom(page)).acceptanceCriteria.length === 0,
+  )
+  const listToast = page.getByRole('status')
+  await listToast.getByRole('button', { name: 'Undo' }).click()
+  await page.waitForTimeout(200)
+  check(
+    'list undo restores the done field',
+    (await payloadFrom(page)).acceptanceCriteria[0] === 'Choosing dark survives a reload',
+  )
 
   await page.getByRole('button', { name: 'Save brief' }).click()
   await page.waitForTimeout(150)
@@ -197,7 +272,7 @@ async function payloadFrom(page) {
     'history row uses the goal as its title',
     (await drawer.getByText('Ship a settings page with a theme toggle.', { exact: true }).count()) === 1,
   )
-  check('history rows count five fields', (await drawer.innerText()).includes('of 5 fields'))
+  check('history rows count eight fields', (await drawer.innerText()).includes('of 8 fields'))
   await page.screenshot({ path: `${SHOTS}/desktop-light-history.png` })
   await page.getByRole('button', { name: 'Close history' }).click()
 
@@ -212,7 +287,7 @@ async function payloadFrom(page) {
     (await page.getByRole('button', { name: /History, 1 saved brief/ }).count()) === 1,
   )
 
-  await editors.nth(0).click()
+  await controlFor('goal').click()
   await page.keyboard.press('Control+a')
   await page.keyboard.type('Changed goal')
   await page.waitForTimeout(150)
@@ -247,6 +322,7 @@ async function payloadFrom(page) {
   check('schema tab shows draft 2020-12', schemaText.includes('json-schema.org/draft/2020-12'))
   check('schema tab has AgentBrief', schemaText.includes('AgentBrief'))
   check('schema lists fileReferences', schemaText.includes('fileReferences'))
+  check('schema lists acceptanceCriteria', schemaText.includes('acceptanceCriteria'))
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: `${SHOTS}/desktop-light-schema.png`, fullPage: true })
   await page.getByRole('tab', { name: 'Brief JSON' }).click()
@@ -301,6 +377,13 @@ async function payloadFrom(page) {
     (await page.evaluate(() => localStorage.getItem('prompt-studio.draft.v2'))) === null,
   )
 
+  await page.getByRole('button', { name: 'Done when has at least one check' }).click()
+  await page.waitForTimeout(150)
+  check(
+    'brief check opens the field it points to',
+    (await page.getByRole('button', { name: 'Collapse Done when' }).count()) === 1,
+  )
+
   await page.getByRole('button', { name: 'Bug', exact: true }).click()
   await page.waitForTimeout(150)
   check(
@@ -308,11 +391,15 @@ async function payloadFrom(page) {
     (await page.locator('#field-goal-label').innerText()) === 'Issue',
   )
   check(
+    'bug mode shows seven fields',
+    (await page.locator('section.field-shell header > span.font-mono').count()) === 7,
+  )
+  check(
     'bug mode explains the missing issue',
     (await page.getByText('Describe the issue to export this brief.').count()) === 1,
   )
 
-  await editors.nth(0).click()
+  await controlFor('goal').click()
   await page.keyboard.type('Theme resets to light after every reload.')
   await page.waitForTimeout(150)
   const bugPayload = await payloadFrom(page)
@@ -332,7 +419,7 @@ async function payloadFrom(page) {
   )
   check(
     'switching modes keeps the editor text',
-    (await editors.nth(0).innerText()).includes('Theme resets to light'),
+    (await controlFor('goal').innerText()).includes('Theme resets to light'),
   )
   await page.getByRole('button', { name: 'Bug', exact: true }).click()
   await page.waitForTimeout(150)
@@ -345,7 +432,10 @@ async function payloadFrom(page) {
       'Create a plan only. Do not edit the codebase until the user approves the plan.',
   )
 
-  await editors.nth(1).click()
+  await page.getByRole('button', { name: 'Expand Repro and context' }).click()
+  await page.waitForTimeout(100)
+
+  await controlFor('details').click()
   await page.keyboard.type('Steps: set dark, reload. Expected dark. Actual light.')
   await page.waitForTimeout(500)
   check(

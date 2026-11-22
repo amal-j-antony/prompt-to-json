@@ -17,9 +17,12 @@ function emptyDoc(): JSONContent {
 function docs(overrides: Partial<FieldDocs> = {}): FieldDocs {
   return {
     goal: emptyDoc(),
+    done: emptyDoc(),
     details: emptyDoc(),
+    nonGoals: emptyDoc(),
     constraints: emptyDoc(),
     files: emptyDoc(),
+    verify: emptyDoc(),
     questions: emptyDoc(),
     ...overrides,
   }
@@ -40,7 +43,7 @@ describe('compileBrief', () => {
     if (result.payload.kind !== 'feature') return
 
     expect(result.payload.goal).toBe('Ship a theme toggle.')
-    expect(result.payload.schemaVersion).toBe('2.0')
+    expect(result.payload.schemaVersion).toBe('3.0')
     expect(result.issues).toEqual([])
     expect(result.json).toContain('"goal": "Ship a theme toggle."')
   })
@@ -71,8 +74,11 @@ describe('compileBrief', () => {
       'kind',
       'goal',
       'details',
+      'acceptanceCriteria',
+      'nonGoals',
       'constraints',
       'fileReferences',
+      'verification',
       'openQuestions',
       'directives',
     ])
@@ -114,6 +120,25 @@ describe('compileBrief', () => {
     if (!result.ok) return
 
     expect(result.payload.details).toBe('**Persists** across reloads.')
+  })
+
+  it('lands acceptance criteria, non-goals, and verification as lists', () => {
+    const result = compileBrief(
+      docs({
+        goal: docWithText('Ship it.'),
+        done: docWithText('Choosing dark survives a reload.'),
+        nonGoals: docWithText('Do not add a theme editor.'),
+        verify: docWithText('npm test'),
+      }),
+      settings(),
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.payload.acceptanceCriteria).toEqual(['Choosing dark survives a reload.'])
+    expect(result.payload.nonGoals).toEqual(['Do not add a theme editor.'])
+    expect(result.payload.verification).toEqual(['npm test'])
   })
 
   it('maps directives to their sentences in registry order', () => {

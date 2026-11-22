@@ -1,8 +1,11 @@
 import type { KeyboardEvent } from 'react'
 import { useRef, useState } from 'react'
 import { Bookmark, Check, CircleAlert, Copy, Download, Info } from 'lucide-react'
+import type { BriefSettings, FieldId } from '../../shared/brief-docs'
 import type { Compiled } from '../brief/compile'
+import type { FieldDocs } from '../brief/docs'
 import { briefJsonSchema } from '../brief/schema'
+import { BriefCheck } from './BriefCheck'
 import { Button } from './Button'
 
 type OutputTab = 'brief' | 'schema'
@@ -30,13 +33,25 @@ function copyWithTextarea(text: string): boolean {
 
 interface OutputPanelProps {
   compiled: Compiled
+  docs: FieldDocs
+  settings: BriefSettings
   primaryLabel: string
   saving: boolean
   onNotify(message: string): void
   onSave(): void
+  onFocusField(field: FieldId): void
 }
 
-export function OutputPanel({ compiled, primaryLabel, saving, onNotify, onSave }: OutputPanelProps) {
+export function OutputPanel({
+  compiled,
+  docs,
+  settings,
+  primaryLabel,
+  saving,
+  onNotify,
+  onSave,
+  onFocusField,
+}: OutputPanelProps) {
   const [tab, setTab] = useState<OutputTab>('brief')
   const tabRefs = useRef<Partial<Record<OutputTab, HTMLButtonElement | null>>>({})
 
@@ -147,7 +162,7 @@ export function OutputPanel({ compiled, primaryLabel, saving, onNotify, onSave }
         ))}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-5 pt-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-5 pt-3">
         {primaryEmpty && tab === 'brief' ? (
           <p className="flex items-start gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-[12px] leading-5 text-muted">
             <Info aria-hidden="true" size={14} className="mt-0.5 shrink-0 text-subtle" />
@@ -164,7 +179,7 @@ export function OutputPanel({ compiled, primaryLabel, saving, onNotify, onSave }
           hidden={tab !== 'brief'}
           className="min-h-0"
         >
-          <pre className="code-scroll min-h-[220px] max-h-[52vh] overflow-auto rounded-xl border border-line bg-code p-3.5 font-mono text-[12.5px] leading-relaxed text-code-ink">
+          <pre className="code-scroll min-h-[220px] max-h-[40vh] overflow-auto rounded-xl border border-line bg-code p-3.5 font-mono text-[12.5px] leading-relaxed text-code-ink">
             {compiled.json}
           </pre>
         </div>
@@ -176,10 +191,17 @@ export function OutputPanel({ compiled, primaryLabel, saving, onNotify, onSave }
           hidden={tab !== 'schema'}
           className="min-h-0"
         >
-          <pre className="code-scroll min-h-[220px] max-h-[52vh] overflow-auto rounded-xl border border-line bg-code p-3.5 font-mono text-[12.5px] leading-relaxed text-code-ink">
+          <pre className="code-scroll min-h-[220px] max-h-[40vh] overflow-auto rounded-xl border border-line bg-code p-3.5 font-mono text-[12.5px] leading-relaxed text-code-ink">
             {SCHEMA_JSON}
           </pre>
         </div>
+
+        <BriefCheck
+          docs={docs}
+          settings={settings}
+          onFocus={onFocusField}
+          variant="inline"
+        />
 
         <Button
           variant="soft"

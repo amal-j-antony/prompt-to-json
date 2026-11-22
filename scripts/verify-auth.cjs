@@ -74,6 +74,9 @@ async function signIn(page, email) {
   await page.waitForTimeout(400)
   check('pill recovers when the database returns', (await page.getByRole('button', { name: 'Server online' }).count()) === 1)
 
+  await page.getByRole('button', { name: 'Expand all' }).click()
+  await page.waitForTimeout(100)
+
   await fillEditor(page, 0, 'Ship the account history feature')
   await fillEditor(page, 1, '- MongoDB\n- Render')
 

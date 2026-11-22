@@ -1,5 +1,5 @@
 import type { JSONContent } from '@tiptap/core'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   DEFAULT_SETTINGS,
   parseFieldDocs,
@@ -9,8 +9,7 @@ import {
   type WorkKind,
 } from '../../shared/brief-docs'
 import { EMPTY_DOCS, type FieldDocs } from '../brief/docs'
-import { fieldHasContent } from '../brief/markdown'
-import { FIELD_REGISTRY, type FieldId } from '../brief/registry'
+import type { FieldId } from '../brief/registry'
 
 const DRAFT_KEY = 'prompt-studio.draft.v2'
 const LEGACY_DRAFT_KEY = 'prompt-studio.draft.v1'
@@ -98,7 +97,6 @@ export function useBriefDraft(): {
   replace(docs: FieldDocs, settings: BriefSettings): void
   reset(): void
   resetToken: number
-  started: number
 } {
   const [draft, setDraft] = useState<Draft>(readDraft)
   const [resetToken, setResetToken] = useState(0)
@@ -163,15 +161,6 @@ export function useBriefDraft(): {
     return () => window.removeEventListener('pagehide', flush)
   }, [])
 
-  const started = useMemo(
-    () =>
-      FIELD_REGISTRY.reduce(
-        (count, spec) => (fieldHasContent(spec.kind, draft.docs[spec.id]) ? count + 1 : count),
-        0,
-      ),
-    [draft.docs],
-  )
-
   return {
     docs: draft.docs,
     settings: draft.settings,
@@ -181,6 +170,5 @@ export function useBriefDraft(): {
     replace,
     reset,
     resetToken,
-    started,
   }
 }

@@ -1,19 +1,22 @@
-import type { Editor, JSONContent } from '@tiptap/core'
-import { Eraser } from 'lucide-react'
-import { useCallback, useRef } from 'react'
+import type { JSONContent } from '@tiptap/core'
+import { ChevronDown, Eraser } from 'lucide-react'
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import type { BriefSettings, DirectiveId, WorkKind } from '../../shared/brief-docs'
 import type { FieldIssue } from '../brief/compile'
-import { DIRECTIVE_REGISTRY } from '../brief/directives'
+import { DIRECTIVE_GROUPS, DIRECTIVE_REGISTRY } from '../brief/directives'
 import type { FieldDocs } from '../brief/docs'
+import { fieldSummary } from '../brief/list'
 import { fieldHasContent } from '../brief/markdown'
 import {
-  FIELD_REGISTRY,
+  fieldSet,
   fieldView,
   KIND_REGISTRY,
   type FieldId,
   type FieldSpec,
 } from '../brief/registry'
+import type { FieldControl } from '../editor/control'
 import { FieldEditor } from '../editor/FieldEditor'
+import { ListFieldEditor } from '../editor/ListFieldEditor'
 import { Button } from './Button'
 import { Icon } from './Icon'
 import type { Notify } from './Toast'
@@ -27,6 +30,10 @@ interface BriefFormProps {
   onKindChange(kind: WorkKind): void
   onToggleDirective(id: DirectiveId): void
   onNotify: Notify
+}
+
+export interface BriefFormHandle {
+  focusField(id: FieldId): void
 }
 
 function KindToggle({ kind, onChange }: { kind: WorkKind; onChange(kind: WorkKind): void }) {
@@ -64,57 +71,89 @@ function DirectiveChips({
   onToggle(id: DirectiveId): void
 }) {
   return (
-    <div role="group" aria-labelledby="directives-label" className="flex flex-wrap items-center gap-2">
-      {DIRECTIVE_REGISTRY.map((directive) => {
-        const active = selected.includes(directive.id)
-        return (
-          <Button
-            key={directive.id}
-            variant={active ? 'soft' : 'secondary'}
-            size="sm"
-            aria-pressed={active}
-            title={directive.text}
-            onClick={() => onToggle(directive.id)}
-          >
-            {directive.label}
-          </Button>
-        )
-      })}
+    <div role="group" aria-labelledby="directives-label" className="space-y-2">
+      {DIRECTIVE_GROUPS.map((group) => (
+        <div key={group.id}>
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">
+            {group.label}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {DIRECTIVE_REGISTRY.filter((directive) => directive.group === group.id).map(
+              (directive) => {
+                const active = selected.includes(directive.id)
+                return (
+                  <Button
+                    key={directive.id}
+                    variant={active ? 'soft' : 'secondary'}
+                    size="sm"
+                    aria-pressed={active}
+                    title={directive.text}
+                    onClick={() => onToggle(directive.id)}
+                  >
+                    {directive.label}
+                  </Button>
+                )
+              },
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-export function BriefForm({
-  docs,
-  settings,
-  issues,
-  resetToken,
-  onChange,
-  onKindChange,
-  onToggleDirective,
-  onNotify,
-}: BriefFormProps) {
-  const editorsRef = useRef<Partial<Record<FieldId, Editor>>>({})
+export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function BriefForm(
+  { docs, settings, issues, resetToken, onChange, onKindChange, onToggleDirective, onNotify },
+  ref,
+) {
+  const controlsRef = useRef<Partial<Record<FieldId, FieldControl>>>({})
+  const [expanded, setExpanded] = useState<Partial<Record<FieldId, boolean>>>({ goal: true })
+  const fields = fieldSet(settings.kind)
+  const allExpanded = fields.every((spec) => expanded[spec.id])
 
-  const registerEditor = useCallback((id: FieldId, editor: Editor) => {
-    editorsRef.current[id] = editor
+  const registerControl = useCallback((id: FieldId, control: FieldControl) => {
+    controlsRef.current[id] = control
   }, [])
 
   const clearField = (spec: FieldSpec) => {
-    const editor = editorsRef.current[spec.id]
-    if (!editor) return
+    const control = controlsRef.current[spec.id]
+    if (!control) return
 
-    editor.chain().focus().clearContent().run()
+    control.clear()
     onNotify(`${spec.label} cleared.`, {
       label: 'Undo',
       onClick: () => {
-        if (editor.isEmpty) editor.commands.undo()
+        if (control.isEmpty()) control.undo()
       },
     })
   }
 
+  const focusField = (id: FieldId) => {
+    setExpanded((previous) => (previous[id] ? previous : { ...previous, [id]: true }))
+    window.requestAnimationFrame(() => {
+      controlsRef.current[id]?.focus()
+    })
+  }
+
+  useImperativeHandle(ref, () => ({ focusField }))
+
+  const toggleField = (id: FieldId) => {
+    setExpanded((previous) => ({ ...previous, [id]: !previous[id] }))
+  }
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpanded({})
+      return
+    }
+
+    const next: Partial<Record<FieldId, boolean>> = {}
+    for (const spec of fields) next[spec.id] = true
+    setExpanded(next)
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <section className="field-shell px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p id="work-type-label" className="text-[13px] font-medium leading-5 text-ink">
@@ -133,19 +172,28 @@ export function BriefForm({
         </div>
       </section>
 
-      {FIELD_REGISTRY.map((spec) => {
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-[12px] font-medium text-muted">Fields</p>
+        <Button variant="ghost" size="sm" onClick={toggleAll}>
+          {allExpanded ? 'Collapse all' : 'Expand all'}
+        </Button>
+      </div>
+
+      {fields.map((spec, index) => {
         const view = fieldView(spec, settings.kind)
+        const open = expanded[view.id] === true
         const error = issues
           .filter((issue) => issue.field === view.id)
           .map((issue) => issue.message)
           .join(' ')
         const hasContent = fieldHasContent(view.kind, docs[view.id])
+        const summary = fieldSummary(view.kind, docs[view.id])
 
         return (
           <section key={view.id} className="field-shell overflow-hidden">
             <header className="flex items-start gap-3 px-5 pb-4 pt-5">
               <span className="mt-0.5 inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-accent-line bg-accent-soft px-1.5 font-mono text-[11px] font-medium tracking-wide text-accent">
-                {view.badge}
+                {String(index + 1).padStart(2, '0')}
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -163,9 +211,9 @@ export function BriefForm({
                 </div>
                 <p
                   id={`field-${view.id}-hint`}
-                  className="mt-0.5 text-[12.5px] leading-5 text-muted"
+                  className="mt-0.5 truncate text-[12.5px] leading-5 text-muted"
                 >
-                  {view.hint}
+                  {!open && hasContent && summary ? summary : view.hint}
                 </p>
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -186,21 +234,48 @@ export function BriefForm({
                 >
                   <Icon name={view.icon} size={16} />
                 </span>
+                <Button
+                  variant="icon"
+                  size="icon"
+                  aria-expanded={open}
+                  aria-controls={`field-${view.id}-body`}
+                  aria-label={`${open ? 'Collapse' : 'Expand'} ${view.label}`}
+                  onClick={() => toggleField(view.id)}
+                >
+                  <ChevronDown
+                    aria-hidden="true"
+                    size={15}
+                    className={`transition-transform ${open ? 'rotate-180' : ''}`}
+                  />
+                </Button>
               </div>
             </header>
 
-            <FieldEditor
-              key={`${resetToken}:${view.id}:${view.label}`}
-              spec={view}
-              doc={docs[view.id]}
-              resetToken={resetToken}
-              error={error || undefined}
-              onEditorReady={(editor) => registerEditor(view.id, editor)}
-              onChange={(doc) => onChange(view.id, doc)}
-            />
+            <div id={`field-${view.id}-body`} hidden={!open}>
+              {view.kind === 'items' ? (
+                <ListFieldEditor
+                  key={`${resetToken}:${view.id}:${view.label}`}
+                  spec={view}
+                  doc={docs[view.id]}
+                  error={error || undefined}
+                  onReady={(control) => registerControl(view.id, control)}
+                  onChange={(doc) => onChange(view.id, doc)}
+                />
+              ) : (
+                <FieldEditor
+                  key={`${resetToken}:${view.id}:${view.label}`}
+                  spec={view}
+                  doc={docs[view.id]}
+                  resetToken={resetToken}
+                  error={error || undefined}
+                  onReady={(control) => registerControl(view.id, control)}
+                  onChange={(doc) => onChange(view.id, doc)}
+                />
+              )}
+            </div>
           </section>
         )
       })}
     </div>
   )
-}
+})

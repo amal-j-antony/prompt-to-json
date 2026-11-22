@@ -1,11 +1,14 @@
 import { z } from 'zod'
 
-export const BRIEF_SCHEMA_VERSION = '2.0' as const
+export const BRIEF_SCHEMA_VERSION = '3.0' as const
 
 const SHARED_FIELDS = {
   details: z.string(),
+  acceptanceCriteria: z.array(z.string().min(1)),
+  nonGoals: z.array(z.string().min(1)),
   constraints: z.string(),
   fileReferences: z.array(z.string().min(1)),
+  verification: z.array(z.string().min(1)),
   openQuestions: z.array(z.string().min(1)),
   directives: z.array(z.string().min(1)),
 }
