@@ -9,8 +9,14 @@ const apiProxy = {
   },
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: { proxy: apiProxy },
-  preview: { proxy: apiProxy },
+export default defineConfig(({ command, mode }) => {
+  const desktop = mode === 'desktop'
+
+  return {
+    plugins: [react(), tailwindcss()],
+    base: command === 'build' && desktop ? './' : '/',
+    build: desktop ? { outDir: 'dist-desktop' } : undefined,
+    server: { proxy: apiProxy, port: 5173, strictPort: true },
+    preview: { proxy: apiProxy },
+  }
 })

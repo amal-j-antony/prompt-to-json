@@ -7,19 +7,10 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta
       name="description"
-      content="Turn five fields into one agent-ready JSON brief."
+      content="Turn a goal or issue into one agent-ready JSON brief."
     />
     <title>Prompt Studio</title>
-    <script>
-      try {
-        var pref = localStorage.getItem('prompt-studio.theme.v1')
-        var dark =
-          pref === 'dark' ||
-          (pref !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.classList.toggle('dark', dark)
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-      } catch (error) {}
-    </script>
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>

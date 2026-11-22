@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { health } from '../lib/api'
+import { IS_DESKTOP } from '../lib/platform'
 
 export type ServerStatus = 'checking' | 'online' | 'degraded' | 'waking' | 'offline'
 
@@ -14,8 +15,8 @@ export interface ServerStatusController {
 }
 
 export function useServerStatus(): ServerStatusController {
-  const [status, setStatus] = useState<ServerStatus>('checking')
-  const statusRef = useRef<ServerStatus>('checking')
+  const [status, setStatus] = useState<ServerStatus>(IS_DESKTOP ? 'offline' : 'checking')
+  const statusRef = useRef<ServerStatus>(IS_DESKTOP ? 'offline' : 'checking')
   const failuresRef = useRef(0)
   const inFlightRef = useRef(false)
   const mountedRef = useRef(true)
@@ -48,17 +49,21 @@ export function useServerStatus(): ServerStatusController {
   }, [apply])
 
   const check = useCallback(() => {
+    if (IS_DESKTOP) return
     apply('checking')
     void run()
   }, [apply, run])
 
   const reportWake = useCallback(() => {
+    if (IS_DESKTOP) return
     failuresRef.current = Math.max(1, failuresRef.current)
     apply('waking')
     void run()
   }, [apply, run])
 
   useEffect(() => {
+    if (IS_DESKTOP) return
+
     mountedRef.current = true
     void run()
 

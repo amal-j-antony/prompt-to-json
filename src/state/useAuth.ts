@@ -8,6 +8,7 @@ import {
   signup as signupRequest,
   withWakeRetry,
 } from '../lib/api'
+import { IS_DESKTOP } from '../lib/platform'
 
 export type AuthStatus = 'loading' | 'ready'
 
@@ -42,12 +43,14 @@ function messageFor(error: unknown): string {
 }
 
 export function useAuth(): AuthController {
-  const [status, setStatus] = useState<AuthStatus>('loading')
+  const [status, setStatus] = useState<AuthStatus>(IS_DESKTOP ? 'ready' : 'loading')
   const [user, setUser] = useState<UserDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (IS_DESKTOP) return
+
     let cancelled = false
 
     void withWakeRetry((signal) => me(signal))
@@ -67,6 +70,7 @@ export function useAuth(): AuthController {
   }, [])
 
   const signup = useCallback(async (email: string, password: string) => {
+    if (IS_DESKTOP) return false
     setBusy(true)
     setError(null)
     try {
@@ -82,6 +86,7 @@ export function useAuth(): AuthController {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
+    if (IS_DESKTOP) return false
     setBusy(true)
     setError(null)
     try {
@@ -97,6 +102,7 @@ export function useAuth(): AuthController {
   }, [])
 
   const logout = useCallback(async () => {
+    if (IS_DESKTOP) return false
     setBusy(true)
     setError(null)
     try {

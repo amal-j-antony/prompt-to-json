@@ -11,7 +11,12 @@ node_modules
 dist
 dist-server
 dist-ssr
+dist-desktop
 *.local
+
+# Tauri
+src-tauri/target
+src-tauri/gen
 
 # Environment
 .env
