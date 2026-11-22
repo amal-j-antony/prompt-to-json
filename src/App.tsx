@@ -3,22 +3,27 @@ import { History as HistoryIcon, RotateCcw } from 'lucide-react'
 import { FIELD_IDS } from '../shared/brief-docs'
 import { compileBrief } from './brief/compile'
 import { fieldHasContent } from './brief/markdown'
-import { fieldSpec, fieldView } from './brief/registry'
-import type { BriefPreset } from './brief/presets'
+import { PRESETS, type BriefPreset } from './brief/presets'
+import { fieldSet, fieldSpec, fieldView } from './brief/registry'
 import type { HistoryEntry } from './history/entry'
+import { copyText } from './lib/clipboard'
+import type { CommandAction } from './lib/commands'
 import { IS_DESKTOP } from './lib/platform'
 import { useAuth } from './state/useAuth'
 import { useBriefDraft } from './state/useBriefDraft'
 import { HISTORY_WRITE_ERROR, useHistory } from './state/useHistory'
 import { useServerStatus } from './state/useServerStatus'
+import { useShortcuts } from './state/useShortcuts'
 import { useTheme } from './state/useTheme'
 import { AccountMenu } from './ui/AccountMenu'
 import { AuthDialog } from './ui/AuthDialog'
 import { BriefForm, type BriefFormHandle } from './ui/BriefForm'
 import { Button } from './ui/Button'
+import { CommandPalette } from './ui/CommandPalette'
 import { HistoryDrawer } from './ui/HistoryDrawer'
 import { OutputPanel } from './ui/OutputPanel'
 import { ServerStatusPill } from './ui/ServerStatusPill'
+import { ShortcutsDialog } from './ui/ShortcutsDialog'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { Toast, type ToastAction } from './ui/Toast'
 
@@ -54,6 +59,8 @@ export default function App() {
   } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const briefFormRef = useRef<BriefFormHandle>(null)
 
   const notify = useCallback((message: string, action?: ToastAction) => {
@@ -67,7 +74,10 @@ export default function App() {
   const closeAuth = useCallback(() => setAuthOpen(false), [])
 
   const handleSave = useCallback(async () => {
-    if (!compiled.ok) return
+    if (!compiled.ok) {
+      notify('Add a goal or issue before saving.')
+      return
+    }
 
     const outcome = await save(docs, settings, {
       onRetry: () => {
@@ -104,6 +114,101 @@ export default function App() {
     },
     [applyPreset, notify, replace],
   )
+
+  const handleCopyShortcut = useCallback(async () => {
+    if (!compiled.ok) {
+      notify('Finish the brief before copying.')
+      return
+    }
+
+    const copied = await copyText(compiled.json)
+    notify(copied ? 'Brief copied to the clipboard.' : 'Copy failed. Select the JSON and copy it.')
+  }, [compiled, notify])
+
+  useShortcuts({
+    enabled: !paletteOpen && !shortcutsOpen && !authOpen && !historyOpen,
+    onTogglePalette: () => setPaletteOpen((open) => !open),
+    onSave: () => {
+      void handleSave()
+    },
+    onCopy: () => {
+      void handleCopyShortcut()
+    },
+    onMoveField: (direction) => briefFormRef.current?.moveField(direction),
+    onHelp: () => setShortcutsOpen(true),
+  })
+
+  const paletteActions = useMemo<CommandAction[]>(() => {
+    const fieldActions: CommandAction[] = fieldSet(settings.kind).map((spec) => {
+      const view = fieldView(spec, settings.kind)
+      return {
+        id: `field-${view.id}`,
+        label: `Go to ${view.label}`,
+        hint: 'Field',
+        keywords: view.id,
+        run: () => briefFormRef.current?.focusField(view.id),
+      }
+    })
+
+    const presetActions: CommandAction[] = PRESETS.map((preset) => ({
+      id: `preset-${preset.id}`,
+      label: `Apply ${preset.label} preset`,
+      hint: 'Preset',
+      keywords: preset.description,
+      run: () => handleApplyPreset(preset),
+    }))
+
+    return [
+      ...fieldActions,
+      ...presetActions,
+      {
+        id: 'toggle-kind',
+        label: settings.kind === 'feature' ? 'Switch to Bug' : 'Switch to Feature',
+        hint: 'Mode',
+        run: () => setKind(settings.kind === 'feature' ? 'bug' : 'feature'),
+      },
+      {
+        id: 'expand-all',
+        label: 'Expand all fields',
+        hint: 'Layout',
+        run: () => briefFormRef.current?.expandAll(),
+      },
+      {
+        id: 'collapse-all',
+        label: 'Collapse all fields',
+        hint: 'Layout',
+        run: () => briefFormRef.current?.collapseAll(),
+      },
+      {
+        id: 'copy-json',
+        label: 'Copy JSON',
+        hint: 'Output',
+        run: () => {
+          void handleCopyShortcut()
+        },
+      },
+      {
+        id: 'save',
+        label: 'Save brief',
+        hint: 'History',
+        run: () => {
+          void handleSave()
+        },
+      },
+      {
+        id: 'history',
+        label: 'Open history',
+        hint: 'History',
+        run: () => setHistoryOpen(true),
+      },
+      {
+        id: 'shortcuts',
+        label: 'Keyboard shortcuts',
+        hint: 'Help',
+        run: () => setShortcutsOpen(true),
+      },
+    ]
+  }, [handleApplyPreset, handleCopyShortcut, handleSave, settings.kind, setKind])
 
   const handleReset = () => {
     if (!window.confirm('Clear all fields, the work type, and the autosaved draft?')) return
@@ -254,6 +359,12 @@ export default function App() {
       {!IS_DESKTOP && authOpen ? (
         <AuthDialog auth={auth} onClose={closeAuth} onSignedIn={handleSignedIn} />
       ) : null}
+
+      {paletteOpen ? (
+        <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />
+      ) : null}
+
+      {shortcutsOpen ? <ShortcutsDialog onClose={() => setShortcutsOpen(false)} /> : null}
 
       {toast ? (
         <Toast

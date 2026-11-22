@@ -40,6 +40,8 @@ export interface BriefFormHandle {
   focusField(id: FieldId): void
   suggestField(id: FieldId): void
   expandAll(): void
+  collapseAll(): void
+  moveField(direction: 1 | -1): void
 }
 
 function KindToggle({ kind, onChange }: { kind: WorkKind; onChange(kind: WorkKind): void }) {
@@ -169,7 +171,36 @@ export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function Br
     setExpanded(next)
   }
 
-  useImperativeHandle(ref, () => ({ focusField, suggestField, expandAll }))
+  const collapseAll = () => {
+    setExpanded({})
+  }
+
+  const moveField = (direction: 1 | -1) => {
+    const ids = fields.map((spec) => spec.id)
+    if (ids.length === 0) return
+
+    const active = document.activeElement
+    const card = active instanceof Element ? active.closest('[data-field-id]') : null
+    const raw = card?.getAttribute('data-field-id') ?? null
+    const current = raw ? ids.find((id) => id === raw) : undefined
+    const index = current ? ids.indexOf(current) : -1
+    const nextIndex =
+      index === -1
+        ? direction === 1
+          ? 0
+          : ids.length - 1
+        : (index + direction + ids.length) % ids.length
+    const next = ids[nextIndex]
+    if (next) focusField(next)
+  }
+
+  useImperativeHandle(ref, () => ({
+    focusField,
+    suggestField,
+    expandAll,
+    collapseAll,
+    moveField,
+  }))
 
   const toggleField = (id: FieldId) => {
     setExpanded((previous) => ({ ...previous, [id]: !previous[id] }))
@@ -177,7 +208,7 @@ export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function Br
 
   const toggleAll = () => {
     if (allExpanded) {
-      setExpanded({})
+      collapseAll()
       return
     }
 
@@ -223,7 +254,7 @@ export const BriefForm = forwardRef<BriefFormHandle, BriefFormProps>(function Br
         const summary = fieldSummary(view.kind, docs[view.id])
 
         return (
-          <section key={view.id} className="field-shell overflow-hidden">
+          <section key={view.id} data-field-id={view.id} className="field-shell overflow-hidden">
             <header className="flex items-start gap-3 px-5 pb-4 pt-5">
               <span className="mt-0.5 inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-accent-line bg-accent-soft px-1.5 font-mono text-[11px] font-medium tracking-wide text-accent">
                 {String(index + 1).padStart(2, '0')}

@@ -84,6 +84,62 @@ async function payloadFrom(page) {
     (await page.getByRole('group', { name: 'Start from' }).getByRole('button').count()) === 5,
   )
 
+  await page.keyboard.press('Control+k')
+  await page.getByRole('dialog', { name: 'Command palette' }).waitFor()
+  check(
+    'command palette opens',
+    (await page.getByRole('dialog', { name: 'Command palette' }).count()) === 1,
+  )
+  await page.screenshot({ path: `${SHOTS}/desktop-command-palette.png` })
+  await page.getByRole('combobox', { name: 'Search commands' }).fill('done when')
+  await page.waitForTimeout(100)
+  check(
+    'palette filters to the done field',
+    (await page.getByRole('option', { name: /Go to Done when/ }).count()) === 1,
+  )
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(200)
+  check(
+    'palette jump focuses the field',
+    await page.evaluate(
+      () => document.activeElement?.getAttribute('aria-labelledby') === 'field-done-label',
+    ),
+  )
+
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+  })
+  await page.keyboard.press('?')
+  await page.getByRole('dialog', { name: 'Keyboard shortcuts' }).waitFor()
+  check(
+    'shortcut help opens',
+    (await page.getByRole('dialog', { name: 'Keyboard shortcuts' }).count()) === 1,
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+  check(
+    'shortcut help closes',
+    (await page.getByRole('dialog', { name: 'Keyboard shortcuts' }).count()) === 0,
+  )
+
+  await controlFor('goal').click()
+  await page.keyboard.press('Alt+ArrowDown')
+  await page.waitForTimeout(100)
+  check(
+    'alt-down moves to the next field',
+    await page.evaluate(
+      () => document.activeElement?.getAttribute('aria-labelledby') === 'field-done-label',
+    ),
+  )
+  await page.keyboard.press('Alt+ArrowUp')
+  await page.waitForTimeout(100)
+  check(
+    'alt-up moves to the previous field',
+    await page.evaluate(
+      () => document.activeElement?.getAttribute('aria-labelledby') === 'field-goal-label',
+    ),
+  )
+
   const darkAtBoot = await page.evaluate(() => document.documentElement.classList.contains('dark'))
   check('system dark applied at boot', darkAtBoot)
   await page.evaluate(() => window.scrollTo(0, 0))
@@ -260,9 +316,12 @@ async function payloadFrom(page) {
     (await payloadFrom(page)).acceptanceCriteria[0] === 'Choosing dark survives a reload',
   )
 
-  await page.getByRole('button', { name: 'Save brief' }).click()
+  await page.keyboard.press('Control+s')
   await page.waitForTimeout(150)
-  check('save shows a toast', (await page.getByRole('status').innerText()).includes('Saved to history'))
+  check(
+    'save shortcut shows a toast',
+    (await page.getByRole('status').innerText()).includes('Saved to history'),
+  )
   check(
     'history count is one',
     (await page.getByRole('button', { name: /History, 1 saved brief/ }).count()) === 1,
@@ -310,6 +369,13 @@ async function payloadFrom(page) {
   const clipboard = await page.evaluate(() => navigator.clipboard.readText())
   check('copy writes the exact payload', JSON.parse(clipboard).goal === payload.goal)
   check('toast confirms copy', (await page.getByRole('status').innerText()).includes('copied'))
+
+  await page.keyboard.press('Control+Alt+c')
+  await page.waitForTimeout(150)
+  check(
+    'copy shortcut confirms',
+    (await page.getByRole('status').innerText()).includes('copied'),
+  )
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),

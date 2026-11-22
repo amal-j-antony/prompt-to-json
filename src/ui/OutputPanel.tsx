@@ -5,6 +5,7 @@ import type { BriefSettings, FieldId } from '../../shared/brief-docs'
 import type { Compiled } from '../brief/compile'
 import type { FieldDocs } from '../brief/docs'
 import { briefJsonSchema } from '../brief/schema'
+import { copyText } from '../lib/clipboard'
 import { BriefCheck } from './BriefCheck'
 import { Button } from './Button'
 
@@ -16,20 +17,6 @@ const TAB_LABELS: Record<OutputTab, string> = {
   schema: 'JSON Schema',
 }
 const SCHEMA_JSON = JSON.stringify(briefJsonSchema, null, 2)
-
-function copyWithTextarea(text: string): boolean {
-  const area = document.createElement('textarea')
-  area.value = text
-  area.setAttribute('readonly', '')
-  area.style.position = 'fixed'
-  area.style.top = '0'
-  area.style.opacity = '0'
-  document.body.appendChild(area)
-  area.select()
-  const copied = document.execCommand('copy')
-  document.body.removeChild(area)
-  return copied
-}
 
 interface OutputPanelProps {
   compiled: Compiled
@@ -79,22 +66,7 @@ export function OutputPanel({
   const handleCopy = async () => {
     if (!compiled.ok) return
 
-    let copied = false
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(compiled.json)
-        copied = true
-      } catch {
-        copied = false
-      }
-    }
-    if (!copied) {
-      try {
-        copied = copyWithTextarea(compiled.json)
-      } catch {
-        copied = false
-      }
-    }
+    const copied = await copyText(compiled.json)
     onNotify(copied ? 'Brief copied to the clipboard.' : 'Copy failed. Select the JSON and copy it.')
   }
 
